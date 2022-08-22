@@ -3,16 +3,17 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to pyutil's documentation!
-==================================
+Welcome to PyUtil's documentation!
+##################################
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+   :maxdepth: 1
+
+      API Reference <./reference.rst>
+      Developer Guide <./dev.rst>
+      Examples <./examples.rst>
 
 Indices and tables
 ==================
 
-* :ref:`genindex`
-* :ref:`modindex`
 * :ref:`search`

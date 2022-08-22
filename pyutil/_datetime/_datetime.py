@@ -9,13 +9,20 @@ def parse_to_datetime(dt_obj: DatetimeLike) -> dt.datetime:
 
     Parameters
     ----------
-        dt_obj: An object to be parsed.
-            int will be treated as Unix Timestamp
-            str will be parsed as "%H:%M:%S <tz>" or "%H%M%S <tz>"
+    dt_obj : DatetimeLike
+        The object to be parsed.
+
+        Integer will be treated as Unix timestamp
 
     Returns
     -------
-        datetime.datetime: The parsed datetime
+    datetime.datetime
+        The parsed datetime
+
+    Examples
+    --------
+    >>> from pyutil import parse_to_datetime
+    >>> parse_to_datetime(1661232943)
     """
     if isinstance(dt_obj, dt.datetime):
         return dt_obj
@@ -32,12 +39,20 @@ def parse_to_date(date_obj: DateLike) -> dt.date:
 
     Parameters
     ----------
-        date_obj (DateLike): An object to be parsed.
-            str will be parsed as "%Y%m%d or %Y/%m/%d"
+    date_obj : DateLike
+        The object to be parsed. 
+        
+        String should in the format "%Y%m%d or %Y/%m/%d"
 
     Returns
     -------
-        datetime.date: The parsed date
+    datetime.date
+        The parsed date
+
+    Examples
+    --------
+    >>> from pyutil import parse_to_date
+    >>> parse_to_date("20220801")
     """
     if isinstance(date_obj, dt.date) and not isinstance(date_obj, dt.datetime):
         return date_obj
@@ -55,13 +70,21 @@ def parse_to_time(time_obj: TimeLike) -> dt.time:
     A function to parse the given input to datetime.time
 
     Parameters
-    ==========
-        time_obj (TimeLike): An object to be parsed.
-            str will be parsed as "%H:%M:%S <tz>" or "%H%M%S <tz>"
+    ----------
+    time_obj : TimeLike
+        The object to be parsed.
+
+        String should in the format "%H:%M:%S <tz>" or "%H%M%S <tz>"
 
     Returns
     -------
-        datetime.time: The parsed time
+    datetime.time
+        The parsed time
+
+    Examples
+    --------
+    >>> from pyutil import parse_to_time
+    >>> parse_to_time("15:30:30")
     """
     if isinstance(time_obj, dt.time) and not isinstance(time_obj, dt.datetime):
         return time_obj
