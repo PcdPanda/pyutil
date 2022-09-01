@@ -4,11 +4,12 @@ from typing import Any, Generator, Hashable, Iterable, List, Set, Union
 def chunkify(obj: Iterable[Any], chunk_size: int) -> List[Any]:
     """Split the given iterable object into chunks
 
-    Args:
-        obj (Iterable[Any]): The object to be chunkified
-
-    Returns:
-        (List[Any]): The chunkified object
+    Parameters
+    ----------
+    obj : Iterable[Any]
+        The object to be chunkified
+    chunk_size : int
+        The size of each chunk
     """
     chunks = list()
     if hasattr(obj, "__iter__"):
@@ -22,11 +23,10 @@ def chunkify(obj: Iterable[Any], chunk_size: int) -> List[Any]:
 def flatten(obj: Union[Iterable[Any], Any]) -> Generator[Any, None, None]:
     """Flatten a given nested iterable object into a generator
 
-    Args:
-        obj (Iterable[Any]): The object to be chunkified
-
-    Returns:
-        (List[Any]): The chunkified object
+    Parameters
+    ----------
+    obj : Iterable[Any]
+        The object to be chunkified
     """
     if isinstance(obj, str) or not hasattr(obj, "__iter__"):
         yield obj
@@ -36,6 +36,13 @@ def flatten(obj: Union[Iterable[Any], Any]) -> Generator[Any, None, None]:
 
 
 def listify(obj: Union[Iterable[Any], Any]) -> List[Any]:
+    """Turn a given iterable object into a list
+
+    Parameters
+    ----------
+    obj : Union[Iterable[Any], Any]
+        The object to be lisified
+    """
     if isinstance(obj, str) or not hasattr(obj, "__iter__"):
         return [obj]
     else:
@@ -43,6 +50,13 @@ def listify(obj: Union[Iterable[Any], Any]) -> List[Any]:
 
 
 def setify(obj: Union[Iterable[Hashable], Hashable]) -> Set[Hashable]:
+    """Turn a given iterable object into a set, the element in the iterable should be hashable
+
+    Parameters
+    ----------
+    obj : Union[Iterable[Hashable], Hashable]
+        The object to be setified
+    """
     if isinstance(obj, str) or not hasattr(obj, "__iter__"):
         return {obj}
     else:
@@ -50,6 +64,13 @@ def setify(obj: Union[Iterable[Hashable], Hashable]) -> Set[Hashable]:
 
 
 def uniquify(obj: Union[Iterable[Hashable], Hashable]) -> List[Hashable]:
+    """Uniquify a given iterable object, the element in the iterable should be hashable
+
+    Parameters
+    ----------
+    obj : Union[Iterable[Hashable], Hashable]
+        The object to be lisified
+    """
     if isinstance(obj, str) or not hasattr(obj, "__iter__"):
         return list({obj})
     return list(setify(obj))

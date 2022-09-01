@@ -10,14 +10,7 @@ def parse_to_datetime(dt_obj: DatetimeLike) -> dt.datetime:
     Parameters
     ----------
     dt_obj : DatetimeLike
-        The object to be parsed.
-
-        Integer will be treated as Unix timestamp
-
-    Returns
-    -------
-    datetime.datetime
-        The parsed datetime
+        The object to be parsed. Integer will be treated as Unix timestamp
 
     Examples
     --------
@@ -40,14 +33,7 @@ def parse_to_date(date_obj: DateLike) -> dt.date:
     Parameters
     ----------
     date_obj : DateLike
-        The object to be parsed. 
-        
-        String should in the format "%Y%m%d or %Y/%m/%d"
-
-    Returns
-    -------
-    datetime.date
-        The parsed date
+        The object to be parsed. String should in the format "%Y%m%d or %Y/%m/%d"
 
     Examples
     --------
@@ -72,14 +58,7 @@ def parse_to_time(time_obj: TimeLike) -> dt.time:
     Parameters
     ----------
     time_obj : TimeLike
-        The object to be parsed.
-
-        String should in the format "%H:%M:%S <tz>" or "%H%M%S <tz>"
-
-    Returns
-    -------
-    datetime.time
-        The parsed time
+        The object to be parsed. String should in the format "%H:%M:%S <tz>" or "%H%M%S <tz>"
 
     Examples
     --------

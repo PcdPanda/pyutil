@@ -26,3 +26,4 @@ test-cov:
 
 test: test-cov
 
+install: pip install .
