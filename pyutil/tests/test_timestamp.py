@@ -4,7 +4,7 @@ from dateutil import tz
 import datetime as dt
 import pandas as pd
 
-from pyutil import parse_to_time, parse_to_date, parse_to_datetime
+from pyutil import parse_to_time, parse_to_date, parse_to_datetime, parse_to_freq
 
 
 def test_parse_to_datetime():
@@ -37,8 +37,10 @@ def test_parse_to_date_err():
 
 def test_parse_to_time():
     dt_expected = dt.time(12, 12, 12)
-    for t in [dt_expected, "12:12:12", "121212"]:
+    for t in [dt_expected, "12:12:12", "121212", "12:12:12.000000"]:
         assert parse_to_time(t) == dt_expected
+
+    assert parse_to_time("12:12:12.121212") == dt.time(12, 12, 12, 121212)
 
     date = dt.date(2020, 7, 1)
     dt_expected = dt.time(23, 23, 23, tzinfo=tz.gettz("Asia/Shanghai"))
@@ -55,3 +57,13 @@ def test_parse_to_time_err():
     for t in ["121212 China/Shanghai", "121212 US/CT "]:
         with pytest.raises(ValueError):
             parse_to_time(t)
+
+
+def test_parse_to_freq():
+    for freq_obj in ["7200S", "2H", pd.PeriodDtype("120Min")]:
+        assert parse_to_freq(freq_obj) == "2h"
+    for freq_obj in ["3Min", "180S", pd.PeriodDtype("3min")]:
+        assert parse_to_freq(freq_obj) == "3min"
+
+    with pytest.raises(TypeError):
+        parse_to_freq(7200)

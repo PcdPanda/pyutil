@@ -1,6 +1,6 @@
 .PHONY : doc clean
 PYTHON ?= python
-PYTEST ?= python -m pytest
+PYTEST ?= pytest
 
 
 all:
@@ -26,4 +26,8 @@ test-cov:
 
 test: test-cov
 
-install: pip install .
+install: 
+	pip install .
+
+lint:
+	flake8

@@ -1,5 +1,5 @@
-Datetime Parser
-###############
+TimeStamp Parser
+################
 
 .. currentmodule:: pyutil
 
@@ -13,4 +13,8 @@ Datetime Parser
 
 **parse_to_time**
 
-.. autofunction:: parse_to_time()
+.. autofunction:: parse_to_time
+
+**parse_to_freq**
+
+.. autofunction:: parse_to_freq

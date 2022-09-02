@@ -6,9 +6,9 @@ def chunkify(obj: Iterable[Any], chunk_size: int) -> List[Any]:
 
     Parameters
     ----------
-    obj : Iterable[Any]
+    obj: Iterable[Any]
         The object to be chunkified
-    chunk_size : int
+    chunk_size: int
         The size of each chunk
     """
     chunks = list()
@@ -25,7 +25,7 @@ def flatten(obj: Union[Iterable[Any], Any]) -> Generator[Any, None, None]:
 
     Parameters
     ----------
-    obj : Iterable[Any]
+    obj: Iterable[Any]
         The object to be chunkified
     """
     if isinstance(obj, str) or not hasattr(obj, "__iter__"):
@@ -40,7 +40,7 @@ def listify(obj: Union[Iterable[Any], Any]) -> List[Any]:
 
     Parameters
     ----------
-    obj : Union[Iterable[Any], Any]
+    obj: Union[Iterable[Any], Any]
         The object to be lisified
     """
     if isinstance(obj, str) or not hasattr(obj, "__iter__"):
@@ -54,7 +54,7 @@ def setify(obj: Union[Iterable[Hashable], Hashable]) -> Set[Hashable]:
 
     Parameters
     ----------
-    obj : Union[Iterable[Hashable], Hashable]
+    obj: Union[Iterable[Hashable], Hashable]
         The object to be setified
     """
     if isinstance(obj, str) or not hasattr(obj, "__iter__"):
@@ -68,7 +68,7 @@ def uniquify(obj: Union[Iterable[Hashable], Hashable]) -> List[Hashable]:
 
     Parameters
     ----------
-    obj : Union[Iterable[Hashable], Hashable]
+    obj: Union[Iterable[Hashable], Hashable]
         The object to be lisified
     """
     if isinstance(obj, str) or not hasattr(obj, "__iter__"):
