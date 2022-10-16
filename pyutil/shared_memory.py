@@ -10,7 +10,7 @@ _O_CREX = os.O_CREAT | os.O_EXCL
 
 
 class SharedMem(SharedMemory):
-    """A share memory instance in POSIX to replace python's native library, aiming at
+    """A share memory instance in POSIX to replace python's native library,
     providing persistent memory storage like a file
 
     Parameters
@@ -63,7 +63,7 @@ class SharedMem(SharedMemory):
                                      f"the given {prefix} has length {len(prefix)}")
                 # Add prefix for the name
                 prefix = "/{}".format(prefix) if not prefix.startswith("/") else prefix
-                while True:
+                while True:  # Try different suffixes randomly until we get a valid one
                     name = "{}_{}".format(prefix, secrets.token_hex(4))
                     try:
                         fd = self._resolve_name(name, flags)

@@ -1,8 +1,7 @@
 from copy import deepcopy
 import math
 import pickle
-from typing import Any, Dict, Iterable, Tuple, Union
-
+from typing import Any, Dict, Iterable, Optional, Tuple, Union
 
 import numpy as np
 from numpy.testing import assert_equal
@@ -13,27 +12,87 @@ from pyutil import TensorLike
 
 class XTensor(object):
     """A multidimensional data structure similar to pandas.DataFrame.
-    The class aims at providing data manipulation methods for multidimensional data
+
+    The class provides slicing, data manipulation, and calculation methods for multidimensional data
     and vectorization computation.
+
+    Attributes
+    ----------
+    values: np.ndarray
+        The numerical value stored by the XTensor
+    indexes: Iterable[np.ndarray]
+        The index on each dimension
+    shape: Tuple[int]:
+        The shape of the XTensor
+
+    Parameters
+    ----------
+    values: TensorLike
+        The numerical value to be stored in the XTensor.
+    indexes: Iterable[Iterable[Any]]
+        The index on each dimension.
+
+        The length of indexes should be the number of dimension.
+
+        The length of each sub list of the indexes should be the length of each dimension.
+
+    Examples
+    --------
+    >>> XTensor([[[30, 10], [40, 20]], [[3, 1], [4, 2]]])
+    XTensor with shape:
+    (2, 2, 2)
+    indexes:
+    [[0, 1], [0, 1], [0, 1]]
+    values:
+    [[[30 10]
+    [40 20]]
+    [[ 3  1]
+    [ 4  2]]]
+
+    >>> dt = {"s1": {"f": [1, 3], "g": [2, 4]}, "s2": {"f": [5, 9], "g": [7, 7]}}
+    >>> xt = XTensor(dt)  # Construct from nested data structure
+    >>> xt
+    XTensor with shape:
+    (2, 2, 2)
+    indexes:
+    ['s1' 's2'], ['f' 'g'], [0 1]
+    values:
+    [[[ 1  3]
+    [ 2  4]]
+    [[ 5  9]
+    [7 7]]]
+
+
+    >>> xt[["s2"], ["f"]]  # indexing by field
+    XTensor with shape:
+    (1, 1, 2)
+    indexes:
+    [array(['s2'], dtype='<U2'), array(['f'], dtype='<U2'), array([0, 1])]
+    values:
+    [[[5 9]]]
+
+
+    >>> df_dict = {"USDT": {"Val": 98, "Vol": 32}, "ETH": {"Val": 47, "Vol": 100}}
+    >>> xt = XTensor(pd.DataFrame(df_dict))
+    >>> xt
+    XTensor with shape:
+    (2, 2)
+    indexes:
+    ['Val' 'Vol'], ['USDT' 'ETH']
+    values:
+    [[ 98  47]
+    [ 32 100]]
+
+    >>> xt[1]  # indexing by id
+    XTensor with shape:
+    (2,)
+    indexes:
+    ['USDT' 'ETH']
+    values:
+    [32 100]
     """
 
     def __init__(self, values: TensorLike, indexes: Iterable[Iterable[Any]] = list()):
-        """Build a data tensor from tensor like value. The value should be aligned
-        so that it can be stored in a numpy.ndarray
-
-        Parameters
-        ==========
-        values: TensorLike
-            The key name of the shared memory for the lock free queue
-        indexes: Iterable[Iterable[Any]]
-            The index on each dimension.
-            The length of indexes should be the number of dimension
-            The length of each sub list of the indexes should be the length of each dimension
-
-        Examples
-        ========
-        >>> 123
-        """
         if isinstance(values, pd.DataFrame):  # construct from DataFrame
             self._values = np.array(values.copy(), copy=False)
             if not indexes:
@@ -104,22 +163,9 @@ class XTensor(object):
         return new_values, new_indexes
 
     @classmethod
-    def assert_constructible(cls, values: np.ndarray, indexes: Iterable[np.ndarray]) -> bool:
+    def _assert_constructible(cls, values: np.ndarray, indexes: Iterable[np.ndarray]) -> bool:
         """Check whether the input values and indexes are aligned with each other
-        so that they can be used to construct a XTensor
-
-        Parameters
-        ==========
-        values: np.ndarray
-            The key name of the shared memory for the lock free queue
-        indexes: Iterable[np.ndarray]
-            The size of the queue, should be power of 2
-
-        Examples
-        ========
-        >>> queue = SharedLockFreeQueue("my_queue", size=2 ** 28)
-        >>> queue.delete("my_queue")
-        """
+        so that they can be used to construct a XTensor"""
         if values.dtype == object:
             raise TypeError("The value's dtype can't be object")
         if indexes and values.shape != tuple([len(index) for index in indexes]):
@@ -128,12 +174,30 @@ class XTensor(object):
                              f"indexes shape={tuple([len(index) for index in indexes])}")
 
     def sort_index(self, axis: int = -1, reverse: bool = False, inplace: bool = False):
-        """Sort the data based on index value
+        """Sort the XTensor based on the value of a given dimension
 
-        Args:
-            axis (int): the axis used for sorting, default is the last
-            reverse (bool): whether sort reversely
-            inplace (bool):
+        Parameters
+        ----------
+        axis: int
+            The dimension for sorting. By default, -1 is using last dimension.
+        reverse: bool
+            If False, sort ascendingly. Otherwise, sort descendingly.
+        inplace: bool
+            If False, return a copy. Otherwise, do operation inplace and return None
+
+        Examples
+        --------
+        >>> xt = XTensor([[[30, 10], [40, 20]], [[3, 1], [4, 2]]])
+        >>> xt.sort_index(axis=0)
+        XTensor with shape:
+        (2, 2, 2)
+        indexes:
+        [array([0, 1]), array([0, 1]), array([0, 1])]
+        values:
+        [[[30 10]
+        [40 20]]
+        [[ 3  1]
+        [ 4  2]]]
         """
         if inplace:
             if self._indexes:  # Only sort when there are valid indexes
@@ -217,7 +281,7 @@ class XTensor(object):
             _values = self.values
             _values[indexes] = new_values
             new_values = _values
-        self.assert_constructible(new_values, indexes)
+        self._assert_constructible(new_values, indexes)
         self._values = new_values
         self.indexes = indexes
 
@@ -229,40 +293,61 @@ class XTensor(object):
         """
         indexes = self.indexes
         values = self.values
-        for i, head in enumerate(indexes[0]):
-            if head == index:  # delete the sepcific field
+        for i, field_index in enumerate(indexes[0]):
+            if field_index == index:  # delete the sepcific field
                 indexes[0] = np.delete(indexes[0], i, axis=0)
                 values = np.delete(values, i, axis=0)
                 break
-        self.assert_constructible(values, indexes)
+        self._assert_constructible(values, indexes)
         self._indexes = indexes
         self.values = values
 
-    def ema(self, com: float = 0, span: float = 0, halflife: float = 0, alpha: float = 0,
-            adjust: bool = True, ignore_na: bool = True, axis: int = -1, inplace: bool = False):
-        """Calculate ema
+    def ema(self, com: Optional[float] = None, span: Optional[float] = None,
+            halflife: Optional[float] = None, alpha: Optional[float] = None,
+            adjust: bool = True, axis: int = -1, inplace: bool = False):
+        """Use vectorization method to calculate exponential moving average based on the formula
+        given by pandas.DataFrame.ewm on a given dimension
 
-        Args:
-            com (float): Optionally specify decay in terms of center of mass
-            span (float): Optionally specify decay in terms of span
-            halflife (float): Optionally specify decay in terms of half-life
-            alpha (float): Optionally specifiy the parameters for ema calculation
-            adjust (bool): Divide by decaying adjustment factor in beginning periods
-            ignore_na (bool): Whether to ignore the nan
-            axis (int=-1): The axis for the operation
-            inplace (bool):
+        Exactly one parameter: ``com``, ``span``, ``halflife``, or ``alpha`` must be provided.
+
+        Parameters
+        ----------
+        com: Optional[float]
+            Specify decay in terms of center of mass, alpha = 1 / (1 + com)
+
+        span: Optional[float]
+            Specify decay in terms of span, alpha = 2 / (span + 1)
+
+        halflife: Optional[float]
+            Specify decay in terms of half-life, alpha = 1 - exp(-ln(2) / halflife)
+
+        alpha: Optional[float]
+            Specify smoothing factor directly
+
+        adjust: bool
+            Divide by decaying adjustment factor in beginning periods to account
+            for imbalance in relative weightings (viewing EWMA as a moving average).
+
+            - When ``adjust=True``,
+                y_{t} = (x_t + (1 - alpha) * x_{t-1} + ... + (1 - alpha) ^ t * x_0)
+                / (1 + (1-alpha) + ... + (1 - alpha) ^ t)
+            - When ``adjust=False``, y_{t} = (1 - alpha) * y_{t-1} + alpha * x_{t}
+        axis: int
+            The dimension for ema calculation.
+        inplace: bool
+            If False, return a copy. Otherwise, do operation inplace and return None.
         """
         axis = axis % len(self.shape)
         if inplace:
-            if com == span == halflife == alpha == 0:
+            if com == span == halflife == alpha is None:
                 raise ValueError("The alpha is not specified")
-            elif com != 0 and span == halflife == alpha == 0:
+            elif com is not None and span == halflife == alpha is None:
                 alpha = 1 / (1 + com)
-            elif span != 0 and com == halflife == alpha == 0:
+            elif span is not None and com == halflife == alpha is None:
                 alpha = 2 / (span + 1)
-            elif halflife != 0 and com == span == alpha == 0:
+            elif halflife is not None and com == span == alpha is None:
                 alpha = 1 - math.exp(-math.log(2) / halflife)
-            elif not (alpha != 0 and com == span == halflife == 0):
+            elif not (alpha is not None and com == span == halflife is None):
                 raise ValueError("Parameters com, span, halflife and alpha are mutually exclusive")
 
             # Swap the axis of calculation to the last dimension
@@ -272,17 +357,23 @@ class XTensor(object):
             if np.isnan(new_values).any():
                 raise ValueError("EMA calculation for missing value is not supported yet")
 
+            # Calculate scale = [(1 - alpha) ^ t, ... (1 - alpha)]
+            block_size = int(np.log(np.finfo(float).tiny) / np.log(1 - alpha))
+            scale_fac = np.power(1 - alpha, np.arange(block_size.shape[-1]))[::-1]
+
             # Calculate ema block by block to avoid numeric problem caused by many multiplications
             def ema_block(block: np.ndarray):
-                scale_fac = np.power(1 - alpha, np.arange(block.shape[-1]))[::-1]
-                alpha_fac = np.ones(shape=scale_fac.shape)
+                # Sometimes the block may not be aligned well
+                valid_scale_fac = scale_fac[:block.shape[-1]]
+                alpha_fac = np.ones(shape=valid_scale_fac.shape)
                 if not adjust:
-                    alpha_fac[1:] = alpha  # [1, alpha, alpha, ...]
-                block = alpha_fac * block * scale_fac
-                block = np.cumsum(block, axis=-1) / scale_fac
+                    alpha_fac[1:] = alpha
+                # Calculate block = [(1 - alpha) ^ t * x_0, ... (1 - alpha) * x_t * alpha]
+                block = alpha_fac * block * valid_scale_fac
+                # Sum everything up then we get not adjusted ema for the block
+                block = np.cumsum(block, axis=-1) / valid_scale_fac
                 return block
 
-            block_size = int(np.log(np.finfo(float).tiny) / np.log(1 - alpha))
             for i in range(0, new_values.shape[-1], block_size):
                 if i == 0:
                     new_values[:, :block_size] = ema_block(new_values[:, :block_size])
@@ -294,21 +385,52 @@ class XTensor(object):
             self.values = new_values.reshape(shape).swapaxes(-1, axis)
         else:
             obj = self.copy()
-            obj.ema(com, span, halflife, alpha, adjust, ignore_na, axis, True)
+            obj.ema(com, span, halflife, alpha, adjust, axis, True)
             return obj
 
-    def fillna(self, value: object = None, method: str = "value",
+    def fillna(self, fill_method: str = "value", value: Optional[Union[float, int]] = None,
                axis: int = -1, inplace: bool = False):
-        """Fill the nan in the values
+        """Shift the values of XTensor along a given dimension and fill the NaN value by a given way.
 
-        Args:
-            val (object): The value to be used for filling
-            method (str): Filling method, can be value / ffill / bfill
-            axis (int): The axis for filling when using prev or after value
-            inplace (bool):
+        Parameters
+        ----------
+        fill_method: str
+            The method to fill the NaN value after shifting,
+            should be one of ``"value" / "matrix" / "roll"``.
+
+            - When ``fill_method="value"``, will use the parameter value to fill all NaN.
+            - When ``fill_method="ffill"`` or ``fill_method="bfill"``, will use the previous / next
+                valid value along the dimension given by parameter axis to fill.
+        value: Optional[Union[float, int]]
+            The value to fill NaN, only valid when ``fill_method="value"``.
+        axis: int
+            The dimension for shifting.
+        inplace: bool
+            If False, return a copy. Otherwise, do operation inplace and return None.
+
+        Examples
+        --------
+        >>> fill_value = range(10, 16)
+        >>> XTensor([1, np.NaN, 3, np.NaN, np.NaN, 5]).fillna(value=fill_value)
+        XTensor with shape:
+        (6,)
+        indexes:
+        [0 1 2 3 4 5]
+        values:
+        [ 1. 11.  3. 13. 14.  5.]
+        >>> xt = XTensor([[np.NaN, np.NaN, np.NaN], [2, np.NaN, 8], [np.NaN, 0, np.NaN]])
+        >>> xt.fillna(fill_method = "bfill", axis=0)
+        XTensor with shape:
+        (3, 3)
+        indexes:
+        [0 1 2], [0 1 2]
+        values:
+        [[ 2.  0.  8.]
+        [ 2.  0.  8.]
+        [nan  0. nan]]
         """
         if inplace:
-            if method == "value":
+            if fill_method == "value":
                 if value is None:
                     raise ValueError("NaN value cannot be filled by None")
                 if not isinstance(value, Iterable):
@@ -328,91 +450,150 @@ class XTensor(object):
                     new_values = new_values.reshape(int(np.prod(new_shape[:-1])), new_shape[-1])
                 else:
                     new_values = new_values.reshape(1, new_shape[-1])
-                if method == "bfill":
+                if fill_method == "bfill":
                     new_values = new_values[:, ::-1]
-                elif method != "ffill":
-                    raise ValueError(f"Parameter method must be in {'value', 'ffill', 'bfill'}, "
-                                     f"the given one is {method}")
+                elif fill_method != "ffill":
+                    raise ValueError(f"Fill_method must be in {'value', 'ffill', 'bfill'}, "
+                                     f"the given one is {fill_method}")
                 mask = np.isnan(new_values)
                 idx = np.where(~mask, np.arange(mask.shape[1]), 0)
                 np.maximum.accumulate(idx, axis=1, out=idx)
                 new_values = new_values[np.arange(idx.shape[0])[:, None], idx]
-                if method == "bfill":
+                if fill_method == "bfill":
                     new_values = new_values[:, ::-1]
                 self.values = new_values.reshape(new_shape).swapaxes(axis, -1)
         else:
             obj = self.copy()
-            obj.fillna(value, method, axis, True)
+            obj.fillna(fill_method, value, axis, True)
             return obj
 
-    def shift(self, step: int = 0, axis: int = -1, fill_type: str = "value",
-              inplace: bool = False, fillna: float = np.NaN):
-        """Shift operation similar to pandas
+    def shift(self, periods: int = 0, axis: int = -1, fill_method: str = "value",
+              fill_value: Union[float, np.ndarray] = np.NaN, inplace: bool = False):
+        """Shift the values of XTensor along a given dimension and fill the NaN value by a given method.
 
-        Args:
-            step (int): the step for shifting, can't exceed the length of this axis
-            axis (int): the axis on which shifting is perfomred
-            fill_type (str): filling type
+        Parameters
+        ----------
+        periods: int
+            Number of periods to shift. Can be positive or negative.
+        axis: int
+            The dimension for shifting.
+        fill_method: str
+            The way to fill the NaN value after shifting,
+            should be one of ``"value" / "matrix" / "roll"``.
+        fill_value: Union[float, np.ndarray]
+            The value to fill NaN when ``fill_method="value"`` or ``fill_method="matrix"``.
 
-                'value': fill the nan with specific value
+            - When ``fill_method="value"``, fill_value should be a float to fill every NaN value.
+            - When ``fill_method="matrix"``, fill_value should be a matrix to fill NaN block
+                caused by shifting.
 
-                'roll': fill the nan with rolling value
+        inplace: bool
+            If False, return a copy. Otherwise, do operation inplace and return None.
 
-                'matrix': fill the nan with an input matrix
-
-            inplace (bool):
-            fillna (float): the value/matrix used for filling, depends on the fill_type
+        Examples
+        --------
+        >>> XTensor([1, 2, 3, 4, 5]).shift(2)
+        XTensor with shape:
+        (5,)
+        indexes:
+        [0 1 2 3 4]
+        values:
+        [nan nan  1.  2.  3.]
+        >>> xt = XTensor([[1, 2, 3], [4, 5, 6]])
+        >>> xt.shift(1, fill_method="value", fill_value=0, axis=1)
+        XTensor with shape:
+        (2, 3)
+        indexes:
+        [0 1], [0 1 2]
+        values:
+        [[10. 1. 2.]
+        [10. 4. 5.]]
+        >>> fill_value = np.array([[7, 8, 9]])
+        >>> xt.shift(-1, fill_method="matrix", fill_value=fill_value, axis=0)
+        XTensor with shape:
+        (2, 3)
+        indexes:
+        [0 1], [0 1 2]
+        values:
+        [[4. 5. 6.]
+        [7. 8. 9.]]
         """
         if inplace:
             axis = axis % len(self.shape)
             shape = list(self.shape)
             cut = [slice(None, None, None)] * len(shape)
-            if abs(step) >= shape[axis]:
-                raise ValueError(f"The absoluate value of step must be smaller than "
-                                 f"shape[{axis}]={shape[axis]}, the given input is {step}")
-            if not step:
-                step = None
-            cut[axis] = slice(None, -step, None) if step > 0 else slice(-step, None, None)
-            value_shifting = self.values.__getitem__(tuple(cut))
-            shape[axis] = abs(step)
-            if fill_type == "value":
-                value_padding = np.zeros(shape=shape) + fillna
-            elif fill_type == "roll":
-                cut[axis] = slice(-step, None, None) if step > 0 else slice(None, -step, None)
-                value_padding = self.values.__getitem__(tuple(cut))
-            elif fill_type == "matrix":
-                value_padding = fillna
+            if abs(periods) >= shape[axis]:
+                raise ValueError(f"The absoluate value of periods must be smaller than "
+                                 f"shape[{axis}]={shape[axis]}, the given input is {periods}")
+            if not periods:
+                periods = None
+            cut[axis] = slice(None, -periods, None) if periods > 0 else slice(-periods, None, None)
+            values_shifted = self.values.__getitem__(tuple(cut))
+            shape[axis] = abs(periods)
+            if fill_method == "value":
+                if not isinstance(fill_value, (int, float)):
+                    raise ValueError(f"When fill_method is value, fill_value must be int or float, "
+                                     f"given fill_value type is {type(fill_value)}")
+                values_filled = np.zeros(shape=shape) + fill_value
+            elif fill_method == "roll":
+                if periods > 0:
+                    cut[axis] = slice(-periods, None, None)
+                else:
+                    cut[axis] = slice(None, -periods, None)
+                values_filled = self.values.__getitem__(tuple(cut))
+            elif fill_method == "matrix":
+                values_filled = fill_value
             else:
-                raise ValueError(f"fill_type must be in roll, value, matrix, "
-                                 f"the given input is {fill_type}")
-            if list(value_padding.shape) != shape:
+                raise ValueError(f"fill_method must be in roll, value, matrix, "
+                                 f"the given input is {fill_method}")
+            if list(values_filled.shape) != shape:
                 raise ValueError(f"The given padding value's shape is not compitable, "
-                                 f"padding value shape is {value_padding.shape}, "
+                                 f"padding value shape is {values_filled.shape}, "
                                  f"the XTensor shape is {shape}")
-            value_padding = value_padding.swapaxes(0, axis)
-            value_shifting = value_shifting.swapaxes(0, axis)
-            shape = list(value_shifting.shape)
-            shape[0] += value_padding.shape[0]
+            values_filled = values_filled.swapaxes(0, axis)
+            values_shifted = values_shifted.swapaxes(0, axis)
+            shape = list(values_shifted.shape)
+            shape[0] += values_filled.shape[0]
             new_values = np.empty(shape=shape)
-            if step > 0:
-                new_values[: value_padding.shape[0]] = value_padding
-                new_values[value_padding.shape[0] :] = value_shifting
+            if periods > 0:
+                new_values[: values_filled.shape[0]] = values_filled
+                new_values[values_filled.shape[0] :] = values_shifted
             else:
-                new_values[: value_shifting.shape[0]] = value_shifting
-                new_values[value_shifting.shape[0] :] = value_padding
+                new_values[: values_shifted.shape[0]] = values_shifted
+                new_values[values_shifted.shape[0] :] = values_filled
             self.values = new_values.swapaxes(0, axis)
         else:
             obj = self.copy()
-            obj.shift(step, axis, fill_type, True, fillna)
+            obj.shift(periods, axis, fill_method, fill_value, True)
             return obj
 
     def swapaxes(self, axis1: int = 0, axis2: int = 1, inplace: bool = False):
-        """swap the dimenstion of the data cube
+        """Exchange two dimenstions of the XTensor.
 
-        Args:
-            axis1 (int): the first axis to be changed
-            axis2 (int): the second axis to be changed
-            inplace (bool):
+        Parameters
+        ----------
+        axis1: int
+            the first dimension to be changed, -1 means last dimension.
+        axis2: int
+            the first dimension to be changed, -1 means last dimension.
+        inplace: bool
+            If False, return a copy. Otherwise, do operation inplace and return None.
+
+        Examples
+        --------
+        >>> xt = XTensor([[[1, 2, 3], [4, 5, 6]],[[7, 8, 9], [10, 11, 12]]])
+        >>> xt.swapaxes(0, 2)
+        XTensor with shape:
+        (3, 2, 2)
+        indexes:
+        [0 1 2], [0 1], [0 1]
+        values:
+        [[[ 1  7]
+        [ 4 10]]
+        [[ 2  8]
+        [ 5 11]]
+        [[ 3  9]
+        [ 6 12]]]
         """
         if inplace:
             axis1 = axis1 % len(self.shape)
@@ -421,7 +602,7 @@ class XTensor(object):
             new_indexes = self.indexes.copy()
             if self.indexes:
                 new_indexes[axis1], new_indexes[axis2] = self.indexes[axis2], self.indexes[axis1]
-            self.assert_constructible(new_values, new_indexes)
+            self._assert_constructible(new_values, new_indexes)
             self._values, self._indexes = new_values, new_indexes
         else:
             obj = self.copy()
@@ -429,11 +610,25 @@ class XTensor(object):
             return obj
 
     def cumsum(self, axis: int = -1, inplace: bool = False):
-        """Calculate cumulative sum on a given axis
+        """Calculate cumulative sum on a given axis.
 
-        Args:
-            axis (int=-1): The axis for the operation
-            inplace (bool):
+        Parameters
+        ----------
+        axis: int
+            The dimension for cumulative sum calculation.
+        inplace: bool
+            If False, return a copy. Otherwise, do operation inplace and return None.
+
+        Examples
+        --------
+        >>> XTensor([[30, 10, 1], [40, 20, 2]]).cumprod(axis=1)
+        XTensor with shape:
+        (2, 3)
+        indexes:
+        [0 1], [0 1 2]
+        values:
+        [[30 40 41]
+        [40 60 62]]
         """
         axis = axis % len(self.shape)
         if inplace:
@@ -444,74 +639,163 @@ class XTensor(object):
             return obj
 
     def cumprod(self, axis: int = -1, inplace: bool = False):
-        """Calculate cumulative product on a given axis
+        """Calculate cumulative product on a given axis.
 
-        Args:
-            axis (int=-1): The axis for the operation
-            inplace (bool):
+        Parameters
+        ----------
+        axis: int
+            The dimension for cumulative product calculation.
+        inplace: bool
+            If False, return a copy. Otherwise, do operation inplace and return None.
+
+        Examples
+        --------
+        >>> XTensor([[30, 10, 1], [40, 20, 2]]).cumprod(axis=1)
+        XTensor with shape:
+        (2, 3)
+        indexes:
+        [0 1], [0 1 2]
+        values:
+        [[  30  300  300]
+        [  40  800 1600]]
         """
-        axis = axis % len(self.shape)
         if inplace:
+            axis = axis % len(self.shape)
             self.values = np.cumprod(self.values, axis)
         else:
             obj = self.copy()
-            obj.cumprod(axis)
+            obj.cumprod(axis, True)
             return obj
 
-    def diff(self, prepend: float = np.NaN, axis: int = -1, inplace: bool = False):
-        """Calculate difference on certain axis
+    def diff(self, periods: int = 1, axis: int = -1, inplace: bool = False):
+        """Calculate difference of XTensor on a given axis.
 
-        Args:
-            prepend (float): The value to fill for slots where the difference can't be calculated
-            axis (int): The axis for the operation
-            inplace (bool):
+        Parameters
+        ----------
+        periods: int
+            Periods to shift for calculating difference, accepts negative values.
+        axis: int
+            The dimension for difference calculation.
+        inplace: bool
+            If False, return a copy. Otherwise, do operation inplace and return None.
+
+        Examples
+        --------
+        >>> xt = XTensor([[30, 10], [40, 20]])
+        >>> xt.diff(axis=1)
+        XTensor with shape:
+        (2, 2)
+        indexes:
+        [0 1], [0 1]
+        values:
+        [[20. nan]
+        [20. nan]]
+
+        >>> XTensor([1, 3, 11, 7, 15]).diff(-2)
+        XTensor with shape:
+        (5,)
+        indexes:
+        [0 1 2 3 4]
+        values:
+        [-10.  -4.  -4.  nan  nan]
         """
-        axis = axis % len(self.shape)
         if inplace:
-            self.values = np.diff(self.values, prepend=prepend, axis=axis)
+            axis = axis % len(self.shape)
+            shifted_values = self.shift(periods, axis=axis).values
+            self.values = self.values.astype(shifted_values.dtype) - shifted_values
         else:
             obj = self.copy()
-            obj.diff(prepend, axis, True)
+            obj.diff(periods, axis, True)
             return obj
 
-    def round(self, digits: int = 0, to: str = "", inplace: bool = False):
-        """Round the the values to the specific digits
+    def round(self, decimals: int = 0, to: str = "", inplace: bool = False):
+        """Round the XTensor to given precision.
 
-        Args:
-            digits (int): The number of digits to be rounded
-            to (str): Can be floor/ceil/"", deciding the round direction
+        Parameters
+        ----------
+        decimals: int
+            Number of decimal places to round to.
+        to: str
+            If the value is floor, then round to the floor.
+            If the value is ceil, then round to the ceiling.
+            Otherwise, will do a normal rounding.
+        inplace: bool
+            If False, return a copy. Otherwise, do operation inplace and return None.
+
+        Examples
+        --------
+        >>> XTensor([1.23, 1.282, 4, 5.7779]).round(2)
+        XTensor with shape:
+        (4,)
+        indexes:
+        [array([0, 1, 2, 3])]
+        values:
+        [1.23 1.28 4.   5.78]
+
+        >>> XTensor([[1.23, 1.28], [4, 5.7779]]).round(1, "ceil")
+        XTensor with shape:
+        (2, 2)
+        indexes:
+        [array([0, 1]), array([0, 1])]
+        values:
+        [[1.3 1.3]
+        [4.  5.8]]
         """
         if to and to not in {"floor", "ceil"}:
             raise ValueError(f"Parameter to must be in {{\"floor\", \"ceil\", None}}, "
                              f"given {to}")
+        if not isinstance(decimals, int) or decimals < 0:
+            raise ValueError(f"Parameter decimals must be a non-negative integer, given {decimals}")
         if inplace:
             if to == "ceil":
-                self.values = self.values * (10 ** digits)
-                self.values = np.round(np.ceil(self.values) / (10 ** digits), digits)
+                self.values = self.values * (10 ** decimals)
+                self.values = np.round(np.ceil(self.values) / (10 ** decimals), decimals)
             elif to == "floor":
-                self.values = self.values * (10 ** digits)
-                self.values = np.round(np.floor(self.values) / (10 ** digits), digits)
+                self.values = self.values * (10 ** decimals)
+                self.values = np.round(np.floor(self.values) / (10 ** decimals), decimals)
             else:
-                self.values = np.round(self.values, digits)
+                self.values = np.round(self.values, decimals)
         else:
             obj = self.copy()
-            obj.round(digits, to, True)
+            obj.round(decimals, to, True)
             return obj
 
     def copy(self):
-        """copy a Data Cube
+        """Create a deep copyed Xtensor.
 
-        Returns:
-            XTensor: Deep copyed XTensor
+        Examples
+        --------
+        >>> XTensor({"v1": [1, 3], "v2": [2, 4]}).copy()
+        XTensor with shape:
+        (2, 2)
+        indexes:
+        [array(['v1', 'v2'], dtype='<U2'), array([0, 1])]
+        values:
+        [[1 3]
+        [2 4]]
         """
         res = XTensor(self._values.copy(), deepcopy(self._indexes))
         return res
 
-    def to_dict(self) -> Dict[str, Iterable]:
-        """Turn the data cube into a dict based on the index
+    def to_dict(self) -> Dict[Any, "XTensor"]:
+        """Transform XTensor into a dict, where the keys are the index names of the first dimension,
+        and the values are sub Xtensors.
 
-        Returns:
-            Dict[str, Iterable]: 转化后的结果
+        Examples
+        --------
+        >>> XTensor({"v1": [1, 2, 3], "v2": [4, 5, 6]}).to_dict()
+        {'v1': XTensor with shape:
+               (3,)
+               indexes:
+               [array([0, 1, 2])]
+               values:
+               [1 2 3],
+        'v2': XTensor with shape:
+              (3,)
+              indexes:
+              [array([0, 1, 2])]
+              values:
+              [4 5 6]}
         """
         ret = dict()
         for key in self.indexes[0]:
@@ -519,20 +803,25 @@ class XTensor(object):
         return ret
 
     def to_df(self) -> pd.DataFrame:
-        """Transform Data Cube to be a dataframe. The Data Cube can only have two dimensions.
+        """Transform XTensor with two dimension into a pandas.DataFrame.
 
-        Returns:
-            pd.DataFrame: the transformed XTensor
+        Examples
+        --------
+        >>> XTensor({"v1": [1, 3], "v2": [2, 4]}).to_df()
+            0  1
+        v1  1  3
+        v2  2  4
         """
         if len(self.shape) != 2:
-            raise ValueError("to_df fail: The dimensions number is not 2")
+            raise ValueError("The Xtensor to be transformed must have 2 dimensions")
         return pd.DataFrame(self._values, index=self.indexes[0], columns=self.indexes[-1])
 
     def to_bytes(self) -> bytes:
-        """Serialize XTensor into bytes
+        """Serialize the XTensor to binary.
 
-        Returns:
-            bytes: A serialized XTensor, can be desearlized by from_bytes
+        Examples
+        --------
+        >>> xt_bytes = XTensor([1, 2, 3]).to_bytes()
         """
         data = self.values.tobytes()
         meta_info = {
@@ -546,11 +835,24 @@ class XTensor(object):
         return meta_info_size + meta_info_pkl + data
 
     @classmethod
-    def from_bytes(cls, binary: bytes):
-        """Deserialize XTensor from bytes
+    def from_bytes(cls, binary: bytes) -> "XTensor":
+        """Deserialize XTensor from bytes.
 
-        Args:
-            binary (bytes): the binary data
+        Parameters
+        ----------
+        binary: bytes
+            Serialized XTensor in binary format.
+
+        Examples
+        --------
+        >>> xt_bytes = XTensor([1, 2, 3]).to_bytes()
+        >>> XTensor.from_bytes(xt_bytes)
+        XTensor with shape:
+        (3,)
+        indexes:
+        [array([0, 1, 2])]
+        values:
+        [1 2 3]
         """
         meta_info_size = int.from_bytes(binary[:32], byteorder="big")
         meta_info = pickle.loads(binary[32 : 32 + meta_info_size])
@@ -588,7 +890,7 @@ class XTensor(object):
     @indexes.setter
     def indexes(self, indexes: Iterable[Iterable[Any]]):
         indexes = list(indexes)
-        self.assert_constructible(self._values, indexes)
+        self._assert_constructible(self._values, indexes)
         self._indexes = tuple([np.array(index) for index in enumerate(indexes)])
 
     @property
@@ -597,7 +899,7 @@ class XTensor(object):
 
     @values.setter
     def values(self, values: object):
-        self.assert_constructible(values, self.indexes)
+        self._assert_constructible(values, self.indexes)
         self._values = np.array(values)
 
     @property
@@ -611,8 +913,9 @@ class XTensor(object):
         return res
 
     def __repr__(self):
+        indexes = ", ".join([f"{index}" for index in self.indexes])
         return (f"XTensor with shape:\n{self.shape}\n"
-                f"indexes:\n{self.indexes}\nvalues:\n{self.values}")
+                f"indexes:\n{indexes}\nvalues:\n{self.values}")
 
     def __eq__(self, other):
         try:

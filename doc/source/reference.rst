@@ -5,6 +5,7 @@ API Reference
 .. toctree::
    :maxdepth: 2
 
-   TimeStamp <reference/timestamp/timestamp.rst>
+   TimeStamp <reference/timestamp.rst>
    Iterify <reference/iterify.rst>
-   Shared Memory <reference/shared_memory/shared_memory.rst>
+   Shared Memory <reference/shared_memory.rst>
+   XTensor <reference/xtensor.rst>

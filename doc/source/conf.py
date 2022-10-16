@@ -22,6 +22,7 @@ release = "0.0.1"
 
 extensions = ["sphinx.ext.autodoc",
               "sphinx.ext.duration",
+              "sphinx.ext.imgmath",
               "sphinx.ext.napoleon",
               "breathe",
               "sphinx.ext.doctest"]
