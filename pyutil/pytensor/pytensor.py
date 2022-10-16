@@ -10,7 +10,7 @@ import pandas as pd
 from pyutil import TensorLike
 
 
-class XTensor(object):
+class PyTensor(object):
     """A multidimensional data structure similar to pandas.DataFrame.
 
     The class provides slicing, data manipulation, and calculation methods for multidimensional data
@@ -19,16 +19,16 @@ class XTensor(object):
     Attributes
     ----------
     values: np.ndarray
-        The numerical value stored by the XTensor
+        The numerical value stored by the PyTensor
     indexes: Iterable[np.ndarray]
         The index on each dimension
     shape: Tuple[int]:
-        The shape of the XTensor
+        The shape of the PyTensor
 
     Parameters
     ----------
     values: TensorLike
-        The numerical value to be stored in the XTensor.
+        The numerical value to be stored in the PyTensor.
     indexes: Iterable[Iterable[Any]]
         The index on each dimension.
 
@@ -38,8 +38,8 @@ class XTensor(object):
 
     Examples
     --------
-    >>> XTensor([[[30, 10], [40, 20]], [[3, 1], [4, 2]]])
-    XTensor with shape:
+    >>> PyTensor([[[30, 10], [40, 20]], [[3, 1], [4, 2]]])
+    PyTensor with shape:
     (2, 2, 2)
     indexes:
     [[0, 1], [0, 1], [0, 1]]
@@ -50,9 +50,9 @@ class XTensor(object):
     [ 4  2]]]
 
     >>> dt = {"s1": {"f": [1, 3], "g": [2, 4]}, "s2": {"f": [5, 9], "g": [7, 7]}}
-    >>> xt = XTensor(dt)  # Construct from nested data structure
+    >>> xt = PyTensor(dt)  # Construct from nested data structure
     >>> xt
-    XTensor with shape:
+    PyTensor with shape:
     (2, 2, 2)
     indexes:
     ['s1' 's2'], ['f' 'g'], [0 1]
@@ -64,7 +64,7 @@ class XTensor(object):
 
 
     >>> xt[["s2"], ["f"]]  # indexing by field
-    XTensor with shape:
+    PyTensor with shape:
     (1, 1, 2)
     indexes:
     [array(['s2'], dtype='<U2'), array(['f'], dtype='<U2'), array([0, 1])]
@@ -73,9 +73,9 @@ class XTensor(object):
 
 
     >>> df_dict = {"USDT": {"Val": 98, "Vol": 32}, "ETH": {"Val": 47, "Vol": 100}}
-    >>> xt = XTensor(pd.DataFrame(df_dict))
+    >>> xt = PyTensor(pd.DataFrame(df_dict))
     >>> xt
-    XTensor with shape:
+    PyTensor with shape:
     (2, 2)
     indexes:
     ['Val' 'Vol'], ['USDT' 'ETH']
@@ -84,7 +84,7 @@ class XTensor(object):
     [ 32 100]]
 
     >>> xt[1]  # indexing by id
-    XTensor with shape:
+    PyTensor with shape:
     (2,)
     indexes:
     ['USDT' 'ETH']
@@ -99,7 +99,7 @@ class XTensor(object):
                 indexes = [np.array(values.index), np.array(values.columns)]
         elif isinstance(values, (int, float, np.number, np.ndarray)):
             self._values = np.array(values, copy=False)  # construct from a single element
-        elif isinstance(values, XTensor):  # move constructor
+        elif isinstance(values, PyTensor):  # move constructor
             self._values = values.values
             if not indexes:
                 indexes = values.indexes.copy()
@@ -110,7 +110,7 @@ class XTensor(object):
 
     @classmethod
     def _load(cls, values: TensorLike) -> Tuple[np.ndarray, Iterable[np.ndarray]]:
-        """Build a XTensor recursively from nested data structure.
+        """Build a PyTensor recursively from nested data structure.
         The method will return the values and indexes for constructor
         """
         # Build the sub Xtensor recursively
@@ -124,23 +124,23 @@ class XTensor(object):
             for i, val in enumerate(values):
                 unaligned_values[i] = cls(val)
         else:
-            raise ValueError(f"Can only build XTensor from TensorLike type, "
+            raise ValueError(f"Can only build PyTensor from TensorLike type, "
                              f"the given type is {type(values)}")
 
-        # Make sure all sub XTensor can be aligned and merged into one big XTensor
+        # Make sure all sub PyTensor can be aligned and merged into one big PyTensor
         new_indexes = None
         for sub_xtensor in unaligned_values.values():
             if sub_xtensor.indexes:
-                # Sort the sub xtensor so that different dimensions can be aligned correctly
+                # Sort the sub pytensor so that different dimensions can be aligned correctly
                 for i in range(len(sub_xtensor.shape)):
                     sub_xtensor.sort_index(axis=i)
-                # New indexes are for merged xtensor, need to be checked with all sub XTensors'
+                # New indexes are for merged pytensor, need to be checked with all sub XTensors'
                 if new_indexes is None:
                     new_indexes = sub_xtensor.indexes
                 elif sub_xtensor.indexes:
                     for i in range(len(sub_xtensor.shape)):  # Check every dimension
                         if not (new_indexes[i] == sub_xtensor.indexes[i]).all():
-                            raise ValueError(f"There is a conflict within the nested XTensor, "
+                            raise ValueError(f"There is a conflict within the nested PyTensor, "
                                              f"one has indexes {new_indexes} "
                                              f"while the other has {sub_xtensor.indexes}")
 
@@ -165,7 +165,7 @@ class XTensor(object):
     @classmethod
     def _assert_constructible(cls, values: np.ndarray, indexes: Iterable[np.ndarray]) -> bool:
         """Check whether the input values and indexes are aligned with each other
-        so that they can be used to construct a XTensor"""
+        so that they can be used to construct a PyTensor"""
         if values.dtype == object:
             raise TypeError("The value's dtype can't be object")
         if indexes and values.shape != tuple([len(index) for index in indexes]):
@@ -174,7 +174,7 @@ class XTensor(object):
                              f"indexes shape={tuple([len(index) for index in indexes])}")
 
     def sort_index(self, axis: int = -1, reverse: bool = False, inplace: bool = False):
-        """Sort the XTensor based on the value of a given dimension
+        """Sort the PyTensor based on the value of a given dimension
 
         Parameters
         ----------
@@ -187,9 +187,9 @@ class XTensor(object):
 
         Examples
         --------
-        >>> xt = XTensor([[[30, 10], [40, 20]], [[3, 1], [4, 2]]])
+        >>> xt = PyTensor([[[30, 10], [40, 20]], [[3, 1], [4, 2]]])
         >>> xt.sort_index(axis=0)
-        XTensor with shape:
+        PyTensor with shape:
         (2, 2, 2)
         indexes:
         [array([0, 1]), array([0, 1]), array([0, 1])]
@@ -252,18 +252,18 @@ class XTensor(object):
             new_indexes.extend(self.indexes[i + 1 :])
         else:
             new_indexes = list()
-        ret = XTensor(new_values, new_indexes)
+        ret = PyTensor(new_values, new_indexes)
         return ret
 
     def __setitem__(self, indexes: Union[Any, Iterable[Any]], new_values: TensorLike):
-        """Add new field to the first dimension of XTensor
+        """Add new field to the first dimension of PyTensor
 
         Args:
             fields (object): the name of the column
             new_values (object): the value
         """
         new_indexes = self.indexes
-        if isinstance(new_values, XTensor):
+        if isinstance(new_values, PyTensor):
             new_values = new_values.values
         if indexes:
             sub_index = new_indexes[0].tolist()
@@ -390,7 +390,7 @@ class XTensor(object):
 
     def fillna(self, fill_method: str = "value", value: Optional[Union[float, int]] = None,
                axis: int = -1, inplace: bool = False):
-        """Shift the values of XTensor along a given dimension and fill the NaN value by a given way.
+        """Shift the values of PyTensor along a given dimension and fill the NaN value by a given way.
 
         Parameters
         ----------
@@ -411,16 +411,16 @@ class XTensor(object):
         Examples
         --------
         >>> fill_value = range(10, 16)
-        >>> XTensor([1, np.NaN, 3, np.NaN, np.NaN, 5]).fillna(value=fill_value)
-        XTensor with shape:
+        >>> PyTensor([1, np.NaN, 3, np.NaN, np.NaN, 5]).fillna(value=fill_value)
+        PyTensor with shape:
         (6,)
         indexes:
         [0 1 2 3 4 5]
         values:
         [ 1. 11.  3. 13. 14.  5.]
-        >>> xt = XTensor([[np.NaN, np.NaN, np.NaN], [2, np.NaN, 8], [np.NaN, 0, np.NaN]])
+        >>> xt = PyTensor([[np.NaN, np.NaN, np.NaN], [2, np.NaN, 8], [np.NaN, 0, np.NaN]])
         >>> xt.fillna(fill_method = "bfill", axis=0)
-        XTensor with shape:
+        PyTensor with shape:
         (3, 3)
         indexes:
         [0 1 2], [0 1 2]
@@ -436,11 +436,11 @@ class XTensor(object):
                 if not isinstance(value, Iterable):
                     self.values = np.nan_to_num(self.values, nan=value)
                 else:
-                    value = value.values if isinstance(value, XTensor) else np.array(value)
+                    value = value.values if isinstance(value, PyTensor) else np.array(value)
                     if self.values.shape != value.shape:
                         raise ValueError(f"The shape of given value is not compitable "
                                          f"the given value shape is {value.shape} "
-                                         f"the XTensor shape is {self.values.shape}")
+                                         f"the PyTensor shape is {self.values.shape}")
                     self.values = np.where(~np.isnan(self.values), self.values, value)
             else:  # Use rolling method to fill
                 axis = axis % len(self.shape)
@@ -469,7 +469,7 @@ class XTensor(object):
 
     def shift(self, periods: int = 0, axis: int = -1, fill_method: str = "value",
               fill_value: Union[float, np.ndarray] = np.NaN, inplace: bool = False):
-        """Shift the values of XTensor along a given dimension and fill the NaN value by a given method.
+        """Shift the values of PyTensor along a given dimension and fill the NaN value by a given method.
 
         Parameters
         ----------
@@ -492,16 +492,16 @@ class XTensor(object):
 
         Examples
         --------
-        >>> XTensor([1, 2, 3, 4, 5]).shift(2)
-        XTensor with shape:
+        >>> PyTensor([1, 2, 3, 4, 5]).shift(2)
+        PyTensor with shape:
         (5,)
         indexes:
         [0 1 2 3 4]
         values:
         [nan nan  1.  2.  3.]
-        >>> xt = XTensor([[1, 2, 3], [4, 5, 6]])
+        >>> xt = PyTensor([[1, 2, 3], [4, 5, 6]])
         >>> xt.shift(1, fill_method="value", fill_value=0, axis=1)
-        XTensor with shape:
+        PyTensor with shape:
         (2, 3)
         indexes:
         [0 1], [0 1 2]
@@ -510,7 +510,7 @@ class XTensor(object):
         [10. 4. 5.]]
         >>> fill_value = np.array([[7, 8, 9]])
         >>> xt.shift(-1, fill_method="matrix", fill_value=fill_value, axis=0)
-        XTensor with shape:
+        PyTensor with shape:
         (2, 3)
         indexes:
         [0 1], [0 1 2]
@@ -549,7 +549,7 @@ class XTensor(object):
             if list(values_filled.shape) != shape:
                 raise ValueError(f"The given padding value's shape is not compitable, "
                                  f"padding value shape is {values_filled.shape}, "
-                                 f"the XTensor shape is {shape}")
+                                 f"the PyTensor shape is {shape}")
             values_filled = values_filled.swapaxes(0, axis)
             values_shifted = values_shifted.swapaxes(0, axis)
             shape = list(values_shifted.shape)
@@ -568,7 +568,7 @@ class XTensor(object):
             return obj
 
     def swapaxes(self, axis1: int = 0, axis2: int = 1, inplace: bool = False):
-        """Exchange two dimenstions of the XTensor.
+        """Exchange two dimenstions of the PyTensor.
 
         Parameters
         ----------
@@ -581,9 +581,9 @@ class XTensor(object):
 
         Examples
         --------
-        >>> xt = XTensor([[[1, 2, 3], [4, 5, 6]],[[7, 8, 9], [10, 11, 12]]])
+        >>> xt = PyTensor([[[1, 2, 3], [4, 5, 6]],[[7, 8, 9], [10, 11, 12]]])
         >>> xt.swapaxes(0, 2)
-        XTensor with shape:
+        PyTensor with shape:
         (3, 2, 2)
         indexes:
         [0 1 2], [0 1], [0 1]
@@ -621,8 +621,8 @@ class XTensor(object):
 
         Examples
         --------
-        >>> XTensor([[30, 10, 1], [40, 20, 2]]).cumprod(axis=1)
-        XTensor with shape:
+        >>> PyTensor([[30, 10, 1], [40, 20, 2]]).cumprod(axis=1)
+        PyTensor with shape:
         (2, 3)
         indexes:
         [0 1], [0 1 2]
@@ -650,8 +650,8 @@ class XTensor(object):
 
         Examples
         --------
-        >>> XTensor([[30, 10, 1], [40, 20, 2]]).cumprod(axis=1)
-        XTensor with shape:
+        >>> PyTensor([[30, 10, 1], [40, 20, 2]]).cumprod(axis=1)
+        PyTensor with shape:
         (2, 3)
         indexes:
         [0 1], [0 1 2]
@@ -668,7 +668,7 @@ class XTensor(object):
             return obj
 
     def diff(self, periods: int = 1, axis: int = -1, inplace: bool = False):
-        """Calculate difference of XTensor on a given axis.
+        """Calculate difference of PyTensor on a given axis.
 
         Parameters
         ----------
@@ -681,9 +681,9 @@ class XTensor(object):
 
         Examples
         --------
-        >>> xt = XTensor([[30, 10], [40, 20]])
+        >>> xt = PyTensor([[30, 10], [40, 20]])
         >>> xt.diff(axis=1)
-        XTensor with shape:
+        PyTensor with shape:
         (2, 2)
         indexes:
         [0 1], [0 1]
@@ -691,8 +691,8 @@ class XTensor(object):
         [[20. nan]
         [20. nan]]
 
-        >>> XTensor([1, 3, 11, 7, 15]).diff(-2)
-        XTensor with shape:
+        >>> PyTensor([1, 3, 11, 7, 15]).diff(-2)
+        PyTensor with shape:
         (5,)
         indexes:
         [0 1 2 3 4]
@@ -709,7 +709,7 @@ class XTensor(object):
             return obj
 
     def round(self, decimals: int = 0, to: str = "", inplace: bool = False):
-        """Round the XTensor to given precision.
+        """Round the PyTensor to given precision.
 
         Parameters
         ----------
@@ -724,16 +724,16 @@ class XTensor(object):
 
         Examples
         --------
-        >>> XTensor([1.23, 1.282, 4, 5.7779]).round(2)
-        XTensor with shape:
+        >>> PyTensor([1.23, 1.282, 4, 5.7779]).round(2)
+        PyTensor with shape:
         (4,)
         indexes:
         [array([0, 1, 2, 3])]
         values:
         [1.23 1.28 4.   5.78]
 
-        >>> XTensor([[1.23, 1.28], [4, 5.7779]]).round(1, "ceil")
-        XTensor with shape:
+        >>> PyTensor([[1.23, 1.28], [4, 5.7779]]).round(1, "ceil")
+        PyTensor with shape:
         (2, 2)
         indexes:
         [array([0, 1]), array([0, 1])]
@@ -765,8 +765,8 @@ class XTensor(object):
 
         Examples
         --------
-        >>> XTensor({"v1": [1, 3], "v2": [2, 4]}).copy()
-        XTensor with shape:
+        >>> PyTensor({"v1": [1, 3], "v2": [2, 4]}).copy()
+        PyTensor with shape:
         (2, 2)
         indexes:
         [array(['v1', 'v2'], dtype='<U2'), array([0, 1])]
@@ -774,23 +774,23 @@ class XTensor(object):
         [[1 3]
         [2 4]]
         """
-        res = XTensor(self._values.copy(), deepcopy(self._indexes))
+        res = PyTensor(self._values.copy(), deepcopy(self._indexes))
         return res
 
-    def to_dict(self) -> Dict[Any, "XTensor"]:
-        """Transform XTensor into a dict, where the keys are the index names of the first dimension,
+    def to_dict(self) -> Dict[Any, "PyTensor"]:
+        """Transform PyTensor into a dict, where the keys are the index names of the first dimension,
         and the values are sub Xtensors.
 
         Examples
         --------
-        >>> XTensor({"v1": [1, 2, 3], "v2": [4, 5, 6]}).to_dict()
-        {'v1': XTensor with shape:
+        >>> PyTensor({"v1": [1, 2, 3], "v2": [4, 5, 6]}).to_dict()
+        {'v1': PyTensor with shape:
                (3,)
                indexes:
                [array([0, 1, 2])]
                values:
                [1 2 3],
-        'v2': XTensor with shape:
+        'v2': PyTensor with shape:
               (3,)
               indexes:
               [array([0, 1, 2])]
@@ -803,11 +803,11 @@ class XTensor(object):
         return ret
 
     def to_df(self) -> pd.DataFrame:
-        """Transform XTensor with two dimension into a pandas.DataFrame.
+        """Transform PyTensor with two dimension into a pandas.DataFrame.
 
         Examples
         --------
-        >>> XTensor({"v1": [1, 3], "v2": [2, 4]}).to_df()
+        >>> PyTensor({"v1": [1, 3], "v2": [2, 4]}).to_df()
             0  1
         v1  1  3
         v2  2  4
@@ -817,11 +817,11 @@ class XTensor(object):
         return pd.DataFrame(self._values, index=self.indexes[0], columns=self.indexes[-1])
 
     def to_bytes(self) -> bytes:
-        """Serialize the XTensor to binary.
+        """Serialize the PyTensor to binary.
 
         Examples
         --------
-        >>> xt_bytes = XTensor([1, 2, 3]).to_bytes()
+        >>> xt_bytes = PyTensor([1, 2, 3]).to_bytes()
         """
         data = self.values.tobytes()
         meta_info = {
@@ -835,19 +835,19 @@ class XTensor(object):
         return meta_info_size + meta_info_pkl + data
 
     @classmethod
-    def from_bytes(cls, binary: bytes) -> "XTensor":
-        """Deserialize XTensor from bytes.
+    def from_bytes(cls, binary: bytes) -> "PyTensor":
+        """Deserialize PyTensor from bytes.
 
         Parameters
         ----------
         binary: bytes
-            Serialized XTensor in binary format.
+            Serialized PyTensor in binary format.
 
         Examples
         --------
-        >>> xt_bytes = XTensor([1, 2, 3]).to_bytes()
-        >>> XTensor.from_bytes(xt_bytes)
-        XTensor with shape:
+        >>> xt_bytes = PyTensor([1, 2, 3]).to_bytes()
+        >>> PyTensor.from_bytes(xt_bytes)
+        PyTensor with shape:
         (3,)
         indexes:
         [array([0, 1, 2])]
@@ -909,12 +909,12 @@ class XTensor(object):
 
     def astype(self, dtype: type):
         """change the dtype of data"""
-        res = XTensor(self._values.astype(dtype), self._indexes)
+        res = PyTensor(self._values.astype(dtype), self._indexes)
         return res
 
     def __repr__(self):
         indexes = ", ".join([f"{index}" for index in self.indexes])
-        return (f"XTensor with shape:\n{self.shape}\n"
+        return (f"PyTensor with shape:\n{self.shape}\n"
                 f"indexes:\n{indexes}\nvalues:\n{self.values}")
 
     def __eq__(self, other):
@@ -929,16 +929,16 @@ class XTensor(object):
         return True
 
     def _assert_compatibility(self, other):
-        """Check the format of self and other XTensor so that
+        """Check the format of self and other PyTensor so that
         they're compatible for arithmetic operation"""
         if isinstance(other, np.ndarray):
-            other = XTensor(other)
+            other = PyTensor(other)
             if other.shape == self.shape:
                 return other
         elif isinstance(other, int) or isinstance(other, float):
-            return XTensor(np.ones(shape=self.shape) * other)
-        if not isinstance(other, XTensor):
-            raise ValueError("Can't construct a XTensor based on the input")
+            return PyTensor(np.ones(shape=self.shape) * other)
+        if not isinstance(other, PyTensor):
+            raise ValueError("Can't construct a PyTensor based on the input")
         try:
             assert self.shape == other.shape
             if self.indexes and other.indexes:
@@ -951,67 +951,67 @@ class XTensor(object):
         return other
 
     def __add__(self, other):
-        other = XTensor(self._assert_compatibility(other))
+        other = PyTensor(self._assert_compatibility(other))
         values = self.values + other.values
-        return XTensor(values, self._indexes)
+        return PyTensor(values, self._indexes)
 
     def __radd__(self, other):
-        other = XTensor(self._assert_compatibility(other))
+        other = PyTensor(self._assert_compatibility(other))
         values = other.values + self.values
-        return XTensor(values, self._indexes)
+        return PyTensor(values, self._indexes)
 
     def __sub__(self, other):
-        other = XTensor(self._assert_compatibility(other))
+        other = PyTensor(self._assert_compatibility(other))
         values = self.values - other.values
-        return XTensor(values, self._indexes)
+        return PyTensor(values, self._indexes)
 
     def __rsub__(self, other):
-        other = XTensor(self._assert_compatibility(other))
+        other = PyTensor(self._assert_compatibility(other))
         values = other.values - self.values
-        return XTensor(values, self._indexes)
+        return PyTensor(values, self._indexes)
 
     def __mul__(self, other):
-        other = XTensor(self._assert_compatibility(other))
+        other = PyTensor(self._assert_compatibility(other))
         values = self.values * other.values
-        return XTensor(values, self._indexes)
+        return PyTensor(values, self._indexes)
 
     def __rmul__(self, other):
-        other = XTensor(self._assert_compatibility(other))
+        other = PyTensor(self._assert_compatibility(other))
         values = other.values * self.values
-        return XTensor(values, self._indexes)
+        return PyTensor(values, self._indexes)
 
     def __truediv__(self, other):
-        other = XTensor(self._assert_compatibility(other))
+        other = PyTensor(self._assert_compatibility(other))
         values = self.values / other.values
-        return XTensor(values, self._indexes)
+        return PyTensor(values, self._indexes)
 
     def __rtruediv__(self, other):
-        other = XTensor(self._assert_compatibility(other))
+        other = PyTensor(self._assert_compatibility(other))
         values = other.values / self.values
-        return XTensor(values, self._indexes)
+        return PyTensor(values, self._indexes)
 
     def __gt__(self, other):
-        other = XTensor(self._assert_compatibility(other))
+        other = PyTensor(self._assert_compatibility(other))
         values = self.values > other.values
-        return XTensor(values, self._indexes)
+        return PyTensor(values, self._indexes)
 
     def __lt__(self, other):
-        other = XTensor(self._assert_compatibility(other))
+        other = PyTensor(self._assert_compatibility(other))
         values = self.values < other.values
-        return XTensor(values, self._indexes)
+        return PyTensor(values, self._indexes)
 
     def __ge__(self, other):
-        other = XTensor(self._assert_compatibility(other))
+        other = PyTensor(self._assert_compatibility(other))
         values = self.values >= other.values
-        return XTensor(values, self._indexes)
+        return PyTensor(values, self._indexes)
 
     def __le__(self, other):
-        other = XTensor(self._assert_compatibility(other))
+        other = PyTensor(self._assert_compatibility(other))
         values = self.values <= other.values
-        return XTensor(values, self._indexes)
+        return PyTensor(values, self._indexes)
 
     def __invert__(self):
-        return XTensor(~self.values, self._indexes)
+        return PyTensor(~self.values, self._indexes)
 
     def __abs__(self):
-        return XTensor(abs(self.values), self._indexes)
+        return PyTensor(abs(self.values), self._indexes)

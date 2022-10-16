@@ -25,9 +25,9 @@ from pyutil.shared_memory import (
     SharedLockFreeQueue
 )
 
-from pyutil.xtensor._typing import TensorLike
+from pyutil.pytensor._typing import TensorLike
 
-from pyutil.xtensor.xtensor import XTensor
+from pyutil.pytensor.pytensor import PyTensor
 
 all = [
     DateLike,
@@ -46,5 +46,5 @@ all = [
     uniquify,
     SharedMem,
     SharedLockFreeQueue,
-    XTensor
+    PyTensor
 ]

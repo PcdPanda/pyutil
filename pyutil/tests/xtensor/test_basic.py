@@ -1,5 +1,5 @@
 import datetime as dt
-from pyutil import XTensor
+from pyutil import PyTensor
 
 import numpy as np
 import pandas as pd
@@ -27,9 +27,9 @@ def slicing_dict():
 
 
 def test_construct_by_value():
-    xt1 = XTensor(1)
-    xt2 = XTensor(1.0)
-    xt3 = XTensor(np.NaN)
+    xt1 = PyTensor(1)
+    xt2 = PyTensor(1.0)
+    xt3 = PyTensor(np.NaN)
     assert xt1.dtype == int
     assert xt2.dtype == float
     assert xt3.dtype == float
@@ -38,7 +38,7 @@ def test_construct_by_value():
 
 
 def test_construct_by_iterable():
-    xt = XTensor([1, 2.0, 3])
+    xt = PyTensor([1, 2.0, 3])
     assert xt.values.dtype == float
     assert xt.shape == (3,)
     assert (xt.values == np.array([1., 2., 3.])).all()
@@ -46,37 +46,37 @@ def test_construct_by_iterable():
 
 def test_construct_by_dict(nested_dict):
     dict_data = nested_dict[dt.datetime(2022, 1, 1, 23, 59, 59)]["ETH"]
-    xt = XTensor(dict_data)
+    xt = PyTensor(dict_data)
     assert xt["Val"].values == dict_data["Val"]
 
 
 def test_construct_by_series(nested_dict):
     series = pd.Series(nested_dict[dt.datetime(2022, 1, 1, 23, 59, 59)]["ETH"])
-    xt = XTensor(series)
+    xt = PyTensor(series)
     assert xt["Val"].values == series["Val"]
 
 
 def test_construct_by_df(nested_dict):
     df = pd.DataFrame(nested_dict[dt.datetime(2022, 1, 1, 23, 59, 59)])
-    xt = XTensor(df)
+    xt = PyTensor(df)
     assert xt["Val", "ETH"].values == df["ETH"]["Val"]
     assert xt[4, 1].values == df["ETH"]["Val"]
 
 
 def test_construct_by_nested_dict(nested_dict):
-    xt = XTensor(nested_dict)
+    xt = PyTensor(nested_dict)
     df = pd.DataFrame(nested_dict[dt.datetime(2022, 1, 1, 23, 59, 59)])
     assert (xt[1, "ETH", ["Val", "PNL"]].values == df["ETH"][["Val", "PNL"]].values).all()
 
 
 def test_construct_by_nested_list(nested_dict):
     ls = pd.DataFrame(nested_dict[dt.datetime(2022, 1, 1, 23, 59, 59)]).values.tolist()
-    xt = XTensor(ls)
+    xt = PyTensor(ls)
     assert xt[4].values.tolist() == ls[4]
 
 
 def test_sort_index(slicing_dict):
-    xt = XTensor(slicing_dict)
+    xt = PyTensor(slicing_dict)
     target1 = [[[30, 10], [40, 20]], [[3, 1], [4, 2]]]
     target2 = [[[1, 3], [2, 4]], [[10, 30], [20, 40]]]
     assert (xt.sort_index(axis=-1, reverse=True).values == target1).all()
@@ -84,21 +84,21 @@ def test_sort_index(slicing_dict):
 
 
 def test_slicing_id(slicing_dict):
-    assert (XTensor(slicing_dict)[0][0].values == XTensor([10, 30]).values).all()
+    assert (PyTensor(slicing_dict)[0][0].values == PyTensor([10, 30]).values).all()
 
 
 def test_slicing_fields(slicing_dict):
-    xt = XTensor(slicing_dict)
-    assert xt["small"] == XTensor({"first": [1, 3], "second": [2, 4]})
+    xt = PyTensor(slicing_dict)
+    assert xt["small"] == PyTensor({"first": [1, 3], "second": [2, 4]})
     target = [[[20, 40]], [[2, 4]]]
     assert (xt[["large", "small"], ["second"]].values == target).all()
 
 
 def test_slice_without_header():
-    xt = XTensor([[0, 1, 2, 4], [0, 10, 20, 40], [0, 100, 200, 400]])
+    xt = PyTensor([[0, 1, 2, 4], [0, 10, 20, 40], [0, 100, 200, 400]])
     assert (xt[1, 2:4].values == [20, 40]).all()
 
 
 def test_bytes(nested_dict):
-    xt = XTensor(nested_dict)
-    assert XTensor.from_bytes(xt.to_bytes()) == xt
+    xt = PyTensor(nested_dict)
+    assert PyTensor.from_bytes(xt.to_bytes()) == xt
