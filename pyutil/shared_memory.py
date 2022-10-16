@@ -14,7 +14,7 @@ class SharedMem(SharedMemory):
     providing persistent memory storage like a file
 
     Parameters
-    ==========
+    ----------
     name: str
         The reference key name for the shared memory, should be unique and never startswith '/'
     create: bool
@@ -28,7 +28,7 @@ class SharedMem(SharedMemory):
         Whether to release the memory when the deconstructor is called
 
     Examples
-    ========
+    ---------
     >>> shm = SharedMem(create=True, name="myshared_mem", size=256)
     >>> shm.buf[:] = bytearray(str.encode("i" * 256))
     >>> shm_linker = SharedMem(name="myshared_mem")
@@ -147,14 +147,14 @@ class SharedLockFreeQueue(object):
     user need to explicitly call the delete method
 
     Parameters
-    ==========
+    ----------
     name: str
         The key name of the shared memory for the lock free queue
     size: int
         The size of the queue, should be power of 2
 
     Examples
-    ========
+    ---------
     >>> queue = SharedLockFreeQueue("my_queue", size=2 ** 28)
     >>> queue.delete("my_queue")
     """
@@ -178,12 +178,12 @@ class SharedLockFreeQueue(object):
         """push back data into the queue
 
         Parameters
-        ==========
+        ----------
         data: bytes
             data to be pushed
 
         Examples
-        ========
+        ---------
         >>> queue = SharedLockFreeQueue("my_queue", size=2 ** 28)
         >>> queue.push(str.encode("1" * test_size))
         >>> queue.delete("my_queue")
@@ -205,7 +205,7 @@ class SharedLockFreeQueue(object):
             the data to be poped
 
         Examples
-        ========
+        ---------
         >>> queue = SharedLockFreeQueue("my_queue", size=2 ** 28)
         >>> queue.push(str.encode("1" * test_size))
         >>> queue.pop().decode()

@@ -26,8 +26,7 @@ make install
 ##### Make document
 
 ```sh
-cd ./doc
-make html
-cd ./build/html
+make doc
+cd ./doc/build/html
 python -m http.server 
 ```

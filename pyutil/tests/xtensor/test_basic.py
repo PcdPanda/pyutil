@@ -1,9 +1,11 @@
 import datetime as dt
-from pyutil import PyTensor
+import tempfile
 
 import numpy as np
 import pandas as pd
 import pytest
+
+from pyutil import PyTensor
 
 
 @pytest.fixture
@@ -24,6 +26,12 @@ def nested_dict():
 def slicing_dict():
     return {"small": {"first": [1, 3], "second": [2, 4]},
             "large": {"first": [10, 30], "second": [20, 40]}}
+
+
+@pytest.fixture
+def temp_dir():
+    with tempfile.TemporaryDirectory() as dirname:
+        yield dirname
 
 
 def test_construct_by_value():
@@ -102,3 +110,54 @@ def test_slice_without_header():
 def test_bytes(nested_dict):
     pt = PyTensor(nested_dict)
     assert PyTensor.from_bytes(pt.to_bytes()) == pt
+
+
+def test_h5(nested_dict, temp_dir):
+    pt = PyTensor(nested_dict)
+    path = f"{temp_dir}/test.h5"
+    pt.to_h5(path, key="test")
+    loaded_pt = PyTensor.from_h5(path, keys="test")
+    assert pt == loaded_pt
+
+
+def test_flush_h5_key(nested_dict, slicing_dict, temp_dir):
+    pt1 = PyTensor(nested_dict)
+    pt2 = PyTensor(slicing_dict)
+    path = f"{temp_dir}/test.h5"
+    pt2.to_h5(path, key="test1")
+    pt2.to_h5(path, key="test2")
+    with pytest.raises(ValueError):
+        pt1.to_h5(path, key="test1")
+    pt1.to_h5(path, key="test1", flush_key=True)
+    loaded_pt1 = PyTensor.from_h5(path, keys="test1")
+    loaded_pt2 = PyTensor.from_h5(path, keys="test2")
+    assert pt1 == loaded_pt1
+    assert pt2 == loaded_pt2
+
+
+def test_multiple_h5_keys(nested_dict, slicing_dict, temp_dir):
+    for i, pt_dict in enumerate((nested_dict, slicing_dict)):
+        pt = PyTensor(pt_dict)
+        path = f"{temp_dir}/test.h5"
+        pt.to_h5(path, key=f"test{i}")
+        loaded_pt = PyTensor.from_h5(path, keys=f"test{i}")
+        assert pt == loaded_pt
+
+
+def test_decomposed_h5_keys(nested_dict, temp_dir):
+    pt = PyTensor(nested_dict)
+    for key in pt.indexes[0]:
+        path = f"{temp_dir}/test.h5"
+        pt[key].to_h5(path, key=key)
+    loaded_pt = PyTensor.from_h5(path, keys=pt.indexes[0])
+    assert pt == loaded_pt
+
+
+def test_load_nonexist_h5key(nested_dict, temp_dir):
+    path = f"{temp_dir}/test.h5"
+    with pytest.raises(FileNotFoundError):
+        PyTensor.from_h5(path, keys="test")
+    pt = PyTensor(nested_dict)
+    pt.to_h5(path, "test")
+    with pytest.raises(KeyError):
+        PyTensor.from_h5(path, keys="test2")

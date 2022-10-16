@@ -9,5 +9,3 @@ def try_import(module_name: str):
         return importlib.import_module(module_name)
     except ModuleNotFoundError:
         return None
-    else:
-        raise

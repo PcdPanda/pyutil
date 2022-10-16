@@ -3,7 +3,7 @@ API Reference
 
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
 
    TimeStamp <reference/timestamp.rst>
    Iterify <reference/iterify.rst>

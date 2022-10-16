@@ -1,24 +1,22 @@
 Iterify
 =======
 
-.. currentmodule:: pyutil
-
 **chunkify**
 
-.. autofunction:: chunkify
+.. autofunction:: pyutil.chunkify
 
 **flatten**
 
-.. autofunction:: flatten
+.. autofunction:: pyutil.flatten
 
 **listify**
 
-.. autofunction:: listify
+.. autofunction:: pyutil.listify
 
 **setify**
 
-.. autofunction:: setify
+.. autofunction:: pyutil.setify
 
 **uniquify**
 
-.. autofunction:: uniquify
+.. autofunction:: pyutil.uniquify

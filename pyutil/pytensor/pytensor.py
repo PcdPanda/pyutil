@@ -1,5 +1,7 @@
 from copy import deepcopy
+from hashlib import sha1
 import math
+import os
 import pickle
 from typing import Any, Dict, Iterable, Optional, Tuple, Union
 
@@ -8,6 +10,9 @@ from numpy.testing import assert_equal
 import pandas as pd
 
 from pyutil import TensorLike
+from pyutil._utils import try_import
+
+h5py = try_import("h5py")
 
 
 class PyTensor(object):
@@ -876,6 +881,99 @@ class PyTensor(object):
         )
         return cls(values=values, indexes=indexes)
 
+    def to_h5(self, path: str, key: str = "", flush_key: bool = False, flush: bool = False):
+        """Export the PyTensor into a h5 file with a given key
+
+        Parameters
+        ----------
+        path: str
+            The path for the h5 file
+        key: str
+            The key of the PyTensor inside the h5 file
+        flush_key: bool
+            Whether replace the old key if it existing in the old file
+        flush: bool
+            Whether replace the old file
+
+        Examples
+        --------
+        >>> PyTensor([[1, 2, 3], [4, 5, 6]]).to_h5("test_path.h5", "test_key1")
+        >>> PyTensor([[10, 20, 30], [40, 50, 60]]).to_h5("test_path.h5", "test_key2")
+        """
+        if h5py is None:
+            raise ModuleNotFoundError("h5py module is not installed")
+        self._assert_constructible(self.values, self.indexes)
+        mode = "a" if os.path.isfile(path) and not flush else "w"
+        with h5py.File(path, mode) as f:
+            indexes_key = sha1(f"{key}_indexes".encode()).hexdigest()
+            values_key = sha1(f"{key}_values".encode()).hexdigest()
+            if flush_key and indexes_key in f.keys():
+                del f[indexes_key]
+            if flush_key and values_key in f.keys():
+                del f[values_key]
+            try:
+                f.create_dataset(indexes_key, data=np.array([pickle.dumps(self.indexes)]))
+                f.create_dataset(values_key, data=self.values, compression="gzip")
+            except ValueError:
+                raise ValueError(f"The key {key} is already being used in the h5 file {path}")
+
+    @classmethod
+    def from_h5(cls, path: str, keys: Union[str, Iterable[str]]) -> "PyTensor":
+        """Load PyTensor from a h5 file
+
+        Parameters
+        ----------
+        path: str
+            The path of the h5 file
+        keys: Union[str, Iterable[str]]
+            The keys of data stored in the h5 file
+
+            - When the type of keys is ``str``, the PyTensor will be loaded from thedata stored
+                by the given key
+            - When the type of keys is ``Iterable[str]``, all PyTensors associated with the given
+                keys will be loaded, and a new dimension will be created to merge them together.
+                All sub PyTensors should have compitable indexes
+
+        Examples
+        --------
+        >>> PyTensor.from_h5("test_path.h5", "test_key1")
+        PyTensor with shape:
+        (2, 3)
+        indexes:
+        [0 1], [0 1 2]
+        values:
+        [[1 2 3]
+        [4 5 6]]
+        >>> PyTensor.from_h5("test_path.h5", ["test_key1", "test_key2"])
+        PyTensor with shape:
+        (2, 2, 3)
+        indexes:
+        ['test_key1' 'test_key2'], [0 1], [0 1 2]
+        values:
+        [[[ 1  2  3]
+        [ 4  5  6]]
+        [[10 20 30]
+        [40 50 60]]]
+        """
+        if h5py is None:
+            raise ModuleNotFoundError("h5py module is not installed")
+
+        with h5py.File(path, "r", libver="latest") as f:
+
+            def load(key: str) -> "PyTensor":
+                """Load a PyTensor from a specific key"""
+                indexes_key = sha1(f"{key}_indexes".encode()).hexdigest()
+                values_key = sha1(f"{key}_values".encode()).hexdigest()
+                return cls(f[values_key][:], pickle.loads(f[indexes_key][0]))
+
+            if isinstance(keys, str):
+                return load(keys)
+            elif isinstance(keys, Iterable):
+                return cls({key: load(key) for key in keys})
+            else:
+                raise ValueError(f"The keys must be str ot Iterable[str], "
+                                 f"the given type is {type(keys)}")
+
     @property
     def dtype(self):
         return self._values.dtype
@@ -916,10 +1014,25 @@ class PyTensor(object):
         """Exchange the first dimension with the last dimension"""
         return self.swapaxes(0, -1)
 
-    def astype(self, dtype: type):
-        """Represent the PyTensor as another dtype"""
-        res = PyTensor(self._values.astype(dtype), self._indexes)
-        return res
+    def astype(self, dtype: type) -> "PyTensor":
+        """Represent the PyTensor as another dtype
+
+        Parameters
+        ----------
+        dtype: type
+            The new dtype for the PyTensor
+
+        Examples
+        --------
+        >>> PyTensor([1, 4.2]).astype(int)
+        PyTensor with shape:
+        (2,)
+        indexes:
+        [0 1]
+        values:
+        [1 4]
+        """
+        return PyTensor(self._values.astype(dtype), self._indexes)
 
     def __repr__(self):
         indexes = ", ".join([f"{index}" for index in self.indexes])

@@ -20,8 +20,8 @@ def parse_to_datetime(dt_obj: DatetimeLike) -> dt.datetime:
 
     Examples
     --------
-    >>> from pyutil import parse_to_datetime
     >>> parse_to_datetime(1661232943)
+    datetime.datetime(2022, 8, 23, 1, 35, 43)
     """
     if isinstance(dt_obj, dt.datetime):
         return dt_obj
@@ -44,8 +44,8 @@ def parse_to_date(date_obj: DateLike) -> dt.date:
 
     Examples
     --------
-    >>> from pyutil import parse_to_date
     >>> parse_to_date("20220801")
+    datetime.date(2022, 8, 1)
     """
     if isinstance(date_obj, dt.date) and not isinstance(date_obj, dt.datetime):
         return date_obj
@@ -71,8 +71,8 @@ def parse_to_time(time_obj: TimeLike) -> dt.time:
 
     Examples
     --------
-    >>> from pyutil import parse_to_time
     >>> parse_to_time("15:30:30")
+    datetime.time(15, 30, 30)
     """
     if isinstance(time_obj, dt.time) and not isinstance(time_obj, dt.datetime):
         return time_obj
@@ -113,8 +113,8 @@ def parse_to_freq(freq_obj: FreqLike) -> str:
 
     Examples
     --------
-    >>> from pyutil import parse_to_freq
     >>> parse_to_freq("7200S")
+    "2h"
     """
     if isinstance(freq_obj, str):
         nanos = pd.PeriodDtype(freq_obj).freq.nanos
