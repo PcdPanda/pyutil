@@ -1,15 +1,33 @@
 # py-utils
-Some util functions for Python development
+Some utility functions for Python development
 
-### Run document
+### Makefile
 
+##### Setup a development environment
 ```sh
-cd ./doc/build/html
-python -m http.server 
+make dev
 ```
 
-### Build and install the module
+##### Run unit test
+```sh
+make test
+```
+
+##### Install the module
+```sh
+make install
+```
+
+##### Install the module
+```sh
+make install
+```
+
+##### Make document
 
 ```sh
-pip install .
+cd ./doc
+make html
+cd ./build/html
+python -m http.server 
 ```

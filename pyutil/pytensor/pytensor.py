@@ -50,8 +50,8 @@ class PyTensor(object):
     [ 4  2]]]
 
     >>> dt = {"s1": {"f": [1, 3], "g": [2, 4]}, "s2": {"f": [5, 9], "g": [7, 7]}}
-    >>> xt = PyTensor(dt)  # Construct from nested data structure
-    >>> xt
+    >>> pt = PyTensor(dt)  # Construct from nested data structure
+    >>> pt
     PyTensor with shape:
     (2, 2, 2)
     indexes:
@@ -63,7 +63,7 @@ class PyTensor(object):
     [7 7]]]
 
 
-    >>> xt[["s2"], ["f"]]  # indexing by field
+    >>> pt[["s2"], ["f"]]  # indexing by field
     PyTensor with shape:
     (1, 1, 2)
     indexes:
@@ -73,8 +73,8 @@ class PyTensor(object):
 
 
     >>> df_dict = {"USDT": {"Val": 98, "Vol": 32}, "ETH": {"Val": 47, "Vol": 100}}
-    >>> xt = PyTensor(pd.DataFrame(df_dict))
-    >>> xt
+    >>> pt = PyTensor(pd.DataFrame(df_dict))
+    >>> pt
     PyTensor with shape:
     (2, 2)
     indexes:
@@ -83,7 +83,7 @@ class PyTensor(object):
     [[ 98  47]
     [ 32 100]]
 
-    >>> xt[1]  # indexing by id
+    >>> pt[1]  # indexing by id
     PyTensor with shape:
     (2,)
     indexes:
@@ -187,8 +187,8 @@ class PyTensor(object):
 
         Examples
         --------
-        >>> xt = PyTensor([[[30, 10], [40, 20]], [[3, 1], [4, 2]]])
-        >>> xt.sort_index(axis=0)
+        >>> pt = PyTensor([[[30, 10], [40, 20]], [[3, 1], [4, 2]]])
+        >>> pt.sort_index(axis=0)
         PyTensor with shape:
         (2, 2, 2)
         indexes:
@@ -302,9 +302,14 @@ class PyTensor(object):
         self._indexes = indexes
         self.values = values
 
-    def ema(self, com: Optional[float] = None, span: Optional[float] = None,
-            halflife: Optional[float] = None, alpha: Optional[float] = None,
-            adjust: bool = True, axis: int = -1, inplace: bool = False):
+    def ema(self,
+            com: Optional[float] = None,
+            span: Optional[float] = None,
+            halflife: Optional[float] = None,
+            alpha: Optional[float] = None,
+            adjust: bool = True,
+            axis: int = -1,
+            inplace: bool = False):
         """Use vectorization method to calculate exponential moving average based on the formula
         given by pandas.DataFrame.ewm on a given dimension
 
@@ -359,19 +364,19 @@ class PyTensor(object):
 
             # Calculate scale = [(1 - alpha) ^ t, ... (1 - alpha)]
             block_size = int(np.log(np.finfo(float).tiny) / np.log(1 - alpha))
-            scale_fac = np.power(1 - alpha, np.arange(block_size.shape[-1]))[::-1]
+            scale_coeff = np.power(1 - alpha, np.arange(block_size + 1))[::-1]
 
             # Calculate ema block by block to avoid numeric problem caused by many multiplications
             def ema_block(block: np.ndarray):
                 # Sometimes the block may not be aligned well
-                valid_scale_fac = scale_fac[:block.shape[-1]]
-                alpha_fac = np.ones(shape=valid_scale_fac.shape)
+                valid_scale_coeff = scale_coeff[:block.shape[-1]]
+                alpha_coeff = np.ones(shape=valid_scale_coeff.shape)
                 if not adjust:
-                    alpha_fac[1:] = alpha
+                    alpha_coeff[1:] = alpha
                 # Calculate block = [(1 - alpha) ^ t * x_0, ... (1 - alpha) * x_t * alpha]
-                block = alpha_fac * block * valid_scale_fac
+                block = alpha_coeff * block * valid_scale_coeff
                 # Sum everything up then we get not adjusted ema for the block
-                block = np.cumsum(block, axis=-1) / valid_scale_fac
+                block = np.cumsum(block, axis=-1) / valid_scale_coeff
                 return block
 
             for i in range(0, new_values.shape[-1], block_size):
@@ -418,8 +423,8 @@ class PyTensor(object):
         [0 1 2 3 4 5]
         values:
         [ 1. 11.  3. 13. 14.  5.]
-        >>> xt = PyTensor([[np.NaN, np.NaN, np.NaN], [2, np.NaN, 8], [np.NaN, 0, np.NaN]])
-        >>> xt.fillna(fill_method = "bfill", axis=0)
+        >>> pt = PyTensor([[np.NaN, np.NaN, np.NaN], [2, np.NaN, 8], [np.NaN, 0, np.NaN]])
+        >>> pt.fillna(fill_method = "bfill", axis=0)
         PyTensor with shape:
         (3, 3)
         indexes:
@@ -467,8 +472,12 @@ class PyTensor(object):
             obj.fillna(fill_method, value, axis, True)
             return obj
 
-    def shift(self, periods: int = 0, axis: int = -1, fill_method: str = "value",
-              fill_value: Union[float, np.ndarray] = np.NaN, inplace: bool = False):
+    def shift(self,
+              periods: int = 0,
+              axis: int = -1,
+              fill_method: str = "value",
+              fill_value: Union[float, np.ndarray] = np.NaN,
+              inplace: bool = False):
         """Shift the values of PyTensor along a given dimension and fill the NaN value by a given method.
 
         Parameters
@@ -499,8 +508,8 @@ class PyTensor(object):
         [0 1 2 3 4]
         values:
         [nan nan  1.  2.  3.]
-        >>> xt = PyTensor([[1, 2, 3], [4, 5, 6]])
-        >>> xt.shift(1, fill_method="value", fill_value=0, axis=1)
+        >>> pt = PyTensor([[1, 2, 3], [4, 5, 6]])
+        >>> pt.shift(1, fill_method="value", fill_value=0, axis=1)
         PyTensor with shape:
         (2, 3)
         indexes:
@@ -509,7 +518,7 @@ class PyTensor(object):
         [[10. 1. 2.]
         [10. 4. 5.]]
         >>> fill_value = np.array([[7, 8, 9]])
-        >>> xt.shift(-1, fill_method="matrix", fill_value=fill_value, axis=0)
+        >>> pt.shift(-1, fill_method="matrix", fill_value=fill_value, axis=0)
         PyTensor with shape:
         (2, 3)
         indexes:
@@ -581,8 +590,8 @@ class PyTensor(object):
 
         Examples
         --------
-        >>> xt = PyTensor([[[1, 2, 3], [4, 5, 6]],[[7, 8, 9], [10, 11, 12]]])
-        >>> xt.swapaxes(0, 2)
+        >>> pt = PyTensor([[[1, 2, 3], [4, 5, 6]],[[7, 8, 9], [10, 11, 12]]])
+        >>> pt.swapaxes(0, 2)
         PyTensor with shape:
         (3, 2, 2)
         indexes:
@@ -681,8 +690,8 @@ class PyTensor(object):
 
         Examples
         --------
-        >>> xt = PyTensor([[30, 10], [40, 20]])
-        >>> xt.diff(axis=1)
+        >>> pt = PyTensor([[30, 10], [40, 20]])
+        >>> pt.diff(axis=1)
         PyTensor with shape:
         (2, 2)
         indexes:
@@ -904,11 +913,11 @@ class PyTensor(object):
 
     @property
     def T(self):
-        """change the first dimension with the last dimension"""
+        """Exchange the first dimension with the last dimension"""
         return self.swapaxes(0, -1)
 
     def astype(self, dtype: type):
-        """change the dtype of data"""
+        """Represent the PyTensor as another dtype"""
         res = PyTensor(self._values.astype(dtype), self._indexes)
         return res
 
@@ -928,7 +937,7 @@ class PyTensor(object):
             return False
         return True
 
-    def _assert_compatibility(self, other):
+    def _assert_compatible(self, other):
         """Check the format of self and other PyTensor so that
         they're compatible for arithmetic operation"""
         if isinstance(other, np.ndarray):
@@ -951,62 +960,62 @@ class PyTensor(object):
         return other
 
     def __add__(self, other):
-        other = PyTensor(self._assert_compatibility(other))
+        other = PyTensor(self._assert_compatible(other))
         values = self.values + other.values
         return PyTensor(values, self._indexes)
 
     def __radd__(self, other):
-        other = PyTensor(self._assert_compatibility(other))
+        other = PyTensor(self._assert_compatible(other))
         values = other.values + self.values
         return PyTensor(values, self._indexes)
 
     def __sub__(self, other):
-        other = PyTensor(self._assert_compatibility(other))
+        other = PyTensor(self._assert_compatible(other))
         values = self.values - other.values
         return PyTensor(values, self._indexes)
 
     def __rsub__(self, other):
-        other = PyTensor(self._assert_compatibility(other))
+        other = PyTensor(self._assert_compatible(other))
         values = other.values - self.values
         return PyTensor(values, self._indexes)
 
     def __mul__(self, other):
-        other = PyTensor(self._assert_compatibility(other))
+        other = PyTensor(self._assert_compatible(other))
         values = self.values * other.values
         return PyTensor(values, self._indexes)
 
     def __rmul__(self, other):
-        other = PyTensor(self._assert_compatibility(other))
+        other = PyTensor(self._assert_compatible(other))
         values = other.values * self.values
         return PyTensor(values, self._indexes)
 
     def __truediv__(self, other):
-        other = PyTensor(self._assert_compatibility(other))
+        other = PyTensor(self._assert_compatible(other))
         values = self.values / other.values
         return PyTensor(values, self._indexes)
 
     def __rtruediv__(self, other):
-        other = PyTensor(self._assert_compatibility(other))
+        other = PyTensor(self._assert_compatible(other))
         values = other.values / self.values
         return PyTensor(values, self._indexes)
 
     def __gt__(self, other):
-        other = PyTensor(self._assert_compatibility(other))
+        other = PyTensor(self._assert_compatible(other))
         values = self.values > other.values
         return PyTensor(values, self._indexes)
 
     def __lt__(self, other):
-        other = PyTensor(self._assert_compatibility(other))
+        other = PyTensor(self._assert_compatible(other))
         values = self.values < other.values
         return PyTensor(values, self._indexes)
 
     def __ge__(self, other):
-        other = PyTensor(self._assert_compatibility(other))
+        other = PyTensor(self._assert_compatible(other))
         values = self.values >= other.values
         return PyTensor(values, self._indexes)
 
     def __le__(self, other):
-        other = PyTensor(self._assert_compatibility(other))
+        other = PyTensor(self._assert_compatible(other))
         values = self.values <= other.values
         return PyTensor(values, self._indexes)
 

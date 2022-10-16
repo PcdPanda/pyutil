@@ -38,8 +38,12 @@ class SharedMem(SharedMemory):
     _prefix_max_length = 16
     _name_max_length = 24
 
-    def __init__(self, name: str = "", create: bool = False, size: Optional[int] = None,
-                 prefix: Optional[str] = None, durable: bool = False):
+    def __init__(self,
+                 name: str = "",
+                 create: bool = False,
+                 size: Optional[int] = None,
+                 prefix: Optional[str] = None,
+                 durable: bool = False):
         self._durable = durable
         flags = os.O_RDWR
         if os.name == "nt":
