@@ -25,11 +25,16 @@ from pyutil.shared_memory import (
     SharedLockFreeQueue
 )
 
+from pyutil.xtensor._typing import TensorLike
+
+from pyutil.xtensor.xtensor import XTensor
+
 all = [
     DateLike,
     DatetimeLike,
     FreqLike,
     TimeLike,
+    TensorLike,
     parse_to_date,
     parse_to_datetime,
     parse_to_freq,
@@ -40,5 +45,6 @@ all = [
     setify,
     uniquify,
     SharedMem,
-    SharedLockFreeQueue
+    SharedLockFreeQueue,
+    XTensor
 ]

@@ -10,19 +10,20 @@ _O_CREX = os.O_CREAT | os.O_EXCL
 
 
 class SharedMem(SharedMemory):
-    """The share memory instance in POSIX to replace python's own library
+    """A share memory instance in POSIX to replace python's native library, aiming at
+    providing persistent memory storage like a file
 
     Parameters
     ==========
     name: str
-        The reference name for the shared memory, should be unique, and can't startswith '/'
+        The reference key name for the shared memory, should be unique and never startswith '/'
     create: bool
         Whether create a new memory or just link to an existing one
     size: int
         The size of shared memory block
     prefix: str
         The prefix for the name reference, only valid when creating a new
-        instance without specific name, it can't startswith '/'
+        instance without specific name. The prefix should never startswith '/'
     durable: bool
         Whether to release the memory when the deconstructor is called
 
@@ -37,34 +38,30 @@ class SharedMem(SharedMemory):
     _prefix_max_length = 16
     _name_max_length = 24
 
-    def __init__(
-        self,
-        name: str = "",
-        create: bool = False,
-        size: Optional[int] = None,
-        prefix: Optional[str] = None,
-        durable: bool = False,
-    ):
+    def __init__(self, name: str = "", create: bool = False, size: Optional[int] = None,
+                 prefix: Optional[str] = None, durable: bool = False):
         self._durable = durable
         flags = os.O_RDWR
         if os.name == "nt":
-            raise ValueError("This is for POSIX SharedMem")
-        if create:
+            raise ValueError("The library is only availe on POSIX system")
+        if create:  # Create a new instance
             if size is None or size <= 0:
-                raise ValueError("Can't create shared memory without positive size")
+                raise ValueError(f"Parameter size must be positive, given {size}")
             flags |= _O_CREX
-            if name:
+            if name:  # create a new instance with a given name
                 if prefix:
-                    raise ValueError("parameter prefix is invalid when name is given")
+                    raise ValueError("Parameter prefix is invalid when name is set")
                 fd = self._resolve_name(name, flags)
-            else:  # create a new instance with prefix
+            else:  # create a new instance with a given prefix followed by random suffix
                 if not prefix:
-                    raise ValueError("Can't create shared memory with empty prefix")
+                    raise ValueError("Prefix shouldn't be empty when create is True")
                 elif prefix.startswith("/"):
-                    raise ValueError(f"prefix can't startswith /, the given prefix is {prefix}")
+                    raise ValueError(f"Prefix shouldn't startswith \"/\", given {prefix}")
                 if len(prefix) > self._prefix_max_length - 1:
-                    raise ValueError(f"prefix length can't exceed {self._prefix_max_length - 1},"
-                                     f" the given prefix {prefix} has length {len(prefix)}")
+                    raise ValueError(f"The length of prefix length shouldn't exceed "
+                                     f"{self._prefix_max_length - 1}, "
+                                     f"the given {prefix} has length {len(prefix)}")
+                # Add prefix for the name
                 prefix = "/{}".format(prefix) if not prefix.startswith("/") else prefix
                 while True:
                     name = "{}_{}".format(prefix, secrets.token_hex(4))
@@ -78,14 +75,14 @@ class SharedMem(SharedMemory):
             raise ValueError("can't link to a shared memory with empty name")
         elif size is not None:
             raise ValueError("parameter size is invalid when connect to a shared memory block")
-        else:
+        else:  # Link to an existing shared memory block
             fd = self._resolve_name(name, flags)
-        try:
+        try:  # Use mmap to link to the shared memory file descriptor and create a bufferview
             stats = os.fstat(fd)
             self._size = stats.st_size
             self._mmap = mmap.mmap(fd, self._size)
             self._buf = memoryview(self._mmap)
-            os.chmod("/dev/shm/{}".format(self._name), stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
+            os.chmod(f"/dev/shm/{self._name}", stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
         except (OSError, PermissionError):
             self.unlink()
             raise
@@ -104,7 +101,7 @@ class SharedMem(SharedMemory):
 
     def close(self):
         """Closes access to the shared memory from this instance but does
-        not destroy the shared memory block."""
+        not release the shared memory block."""
         self._size = None
         if self._buf is not None:
             self._buf.release()
@@ -124,6 +121,7 @@ class SharedMem(SharedMemory):
         return _posixshmem.shm_open(self._name, flags=flags, mode=self._mode)
 
     def __enter__(self):
+        """Take the advantage of Python's with context manager to prevent memory leak"""
         self._durable = False
         return self
 
@@ -140,6 +138,9 @@ class SharedMem(SharedMemory):
 
 class SharedLockFreeQueue(object):
     """Create a single producer and single consumer lock free queue for IPC
+    The lockfree queue can use a shared memory as buffer
+    The destructor won't release the shared memory block in deconstructor, so
+    user need to explicitly call the delete method
 
     Parameters
     ==========
@@ -158,11 +159,11 @@ class SharedLockFreeQueue(object):
             name = secrets.token_hex(8)
         if size is not None:
             if size < 65536:
-                raise ValueError(f"size must large than 65536 bytes, the given size is {size}")
+                raise ValueError(f"size must be larger than 65536 bytes, the given size is {size}")
             elif size & (size - 1):
                 raise ValueError(f"size must be power of 2, the given size is {size}")
             elif size > 2 ** 64:
-                raise ValueError(f"size should be smaller than 2^64 + 1, the given size is {size}")
+                raise ValueError(f"size must be smaller than 2^64 + 1, the given size is {size}")
             self._shm = SharedMem(name=name, create=True, size=size + 16, durable=True)
         else:
             self._shm = SharedMem(name=name, durable=True)
@@ -209,15 +210,16 @@ class SharedLockFreeQueue(object):
         if self.empty():
             raise BufferError("The queue is already empty")
 
-        def load(length: int, head: int) -> bytes:
+        def _load(length: int, head: int) -> bytes:
+            """A helper function to calculate the size of each data object"""
             remain = min(length, self.size - head)
             buffer = bytearray(length)
             buffer[:remain] = self.buf[head : head + remain]
             buffer[remain:] = self.buf[: length - remain]
             return buffer
 
-        size = int.from_bytes(load(8, self.head), byteorder="big")
-        data = load(size, self.head + 8)
+        size = int.from_bytes(_load(8, self.head), byteorder="big")
+        data = _load(size, self.head + 8)
         self.head += len(data) + 8
         return data
 
