@@ -47,7 +47,7 @@ class PyTensor(object):
     PyTensor with shape:
     (2, 2, 2)
     indexes:
-    [[0, 1], [0, 1], [0, 1]]
+    [0, 1], [0, 1], [0, 1]
     values:
     [[[30 10]
     [40 20]]
@@ -72,7 +72,7 @@ class PyTensor(object):
     PyTensor with shape:
     (1, 1, 2)
     indexes:
-    [array(['s2'], dtype='<U2'), array(['f'], dtype='<U2'), array([0, 1])]
+    ['s2'], ['f'], [0, 1]
     values:
     [[[5 9]]]
 
@@ -118,7 +118,7 @@ class PyTensor(object):
         """Build a PyTensor recursively from nested data structure.
         The method will return the values and indexes for constructor
         """
-        # Build the sub Xtensor recursively
+        # Build the sub PyTensor recursively
         unaligned_values = dict()
         if isinstance(values, pd.Series):
             values = values.to_dict()
@@ -134,34 +134,34 @@ class PyTensor(object):
 
         # Make sure all sub PyTensor can be aligned and merged into one big PyTensor
         new_indexes = None
-        for sub_xtensor in unaligned_values.values():
-            if sub_xtensor.indexes:
+        for sub_tensor in unaligned_values.values():
+            if sub_tensor.indexes:
                 # Sort the sub pytensor so that different dimensions can be aligned correctly
-                for i in range(len(sub_xtensor.shape)):
-                    sub_xtensor.sort_index(axis=i)
-                # New indexes are for merged pytensor, need to be checked with all sub XTensors'
+                for i in range(len(sub_tensor.shape)):
+                    sub_tensor.sort_index(axis=i)
+                # New indexes are for merged pytensor, need to be checked with all sub pytensors'
                 if new_indexes is None:
-                    new_indexes = sub_xtensor.indexes
-                elif sub_xtensor.indexes:
-                    for i in range(len(sub_xtensor.shape)):  # Check every dimension
-                        if not (new_indexes[i] == sub_xtensor.indexes[i]).all():
+                    new_indexes = sub_tensor.indexes
+                elif sub_tensor.indexes:
+                    for i in range(len(sub_tensor.shape)):  # Check every dimension
+                        if not (new_indexes[i] == sub_tensor.indexes[i]).all():
                             raise ValueError(f"There is a conflict within the nested PyTensor, "
                                              f"one has indexes {new_indexes} "
-                                             f"while the other has {sub_xtensor.indexes}")
+                                             f"while the other has {sub_tensor.indexes}")
 
-        # Merge sub xtensors together
+        # Merge sub pytensors together
         new_values = None
         new_first_dimension = list()
         for i, key in enumerate(sorted(unaligned_values.keys())):
-            sub_xtensor = unaligned_values[key]
+            sub_tensor = unaligned_values[key]
             new_first_dimension.append(key)
             if new_values is None:  # Initializae the new values
-                new_values = np.ndarray(shape=[len(unaligned_values)] + list(sub_xtensor.shape),
-                                        dtype=sub_xtensor.dtype)
-            if new_values.dtype != sub_xtensor.dtype:  # Set the dtype
+                new_values = np.ndarray(shape=[len(unaligned_values)] + list(sub_tensor.shape),
+                                        dtype=sub_tensor.dtype)
+            if new_values.dtype != sub_tensor.dtype:  # Set the dtype
                 new_values = new_values.astype(float)
-                sub_xtensor = sub_xtensor.astype(float)
-            new_values[i] = sub_xtensor.values
+                sub_tensor = sub_tensor.astype(float)
+            new_values[i] = sub_tensor.values
         if not new_indexes:  # If the user doesn't give any index, we generate default ones
             new_indexes = [[i for i in range(j)] for j in new_values.shape[1:]]
         new_indexes = [np.array(new_first_dimension)] + new_indexes
@@ -197,7 +197,7 @@ class PyTensor(object):
         PyTensor with shape:
         (2, 2, 2)
         indexes:
-        [array([0, 1]), array([0, 1]), array([0, 1])]
+        [0 1], [0 1], [0 1]
         values:
         [[[30 10]
         [40 20]]
@@ -742,7 +742,7 @@ class PyTensor(object):
         PyTensor with shape:
         (4,)
         indexes:
-        [array([0, 1, 2, 3])]
+        [0, 1, 2, 3]
         values:
         [1.23 1.28 4.   5.78]
 
@@ -750,7 +750,7 @@ class PyTensor(object):
         PyTensor with shape:
         (2, 2)
         indexes:
-        [array([0, 1]), array([0, 1])]
+        [0, 1], [0, 1]
         values:
         [[1.3 1.3]
         [4.  5.8]]
@@ -775,7 +775,7 @@ class PyTensor(object):
             return obj
 
     def copy(self):
-        """Create a deep copyed Xtensor.
+        """Create a deep copyed PyTensor.
 
         Examples
         --------
@@ -783,7 +783,7 @@ class PyTensor(object):
         PyTensor with shape:
         (2, 2)
         indexes:
-        [array(['v1', 'v2'], dtype='<U2'), array([0, 1])]
+        ['v1' 'v2'], [0 1]
         values:
         [[1 3]
         [2 4]]
@@ -793,7 +793,7 @@ class PyTensor(object):
 
     def to_dict(self) -> Dict[Any, "PyTensor"]:
         """Transform PyTensor into a dict, where the keys are the index names of the first dimension,
-        and the values are sub Xtensors.
+        and the values are sub PyTensors.
 
         Examples
         --------
@@ -801,13 +801,13 @@ class PyTensor(object):
         {'v1': PyTensor with shape:
                (3,)
                indexes:
-               [array([0, 1, 2])]
+               [0, 1, 2]
                values:
                [1 2 3],
         'v2': PyTensor with shape:
               (3,)
               indexes:
-              [array([0, 1, 2])]
+              [0, 1, 2]
               values:
               [4 5 6]}
         """
@@ -827,7 +827,7 @@ class PyTensor(object):
         v2  2  4
         """
         if len(self.shape) != 2:
-            raise ValueError("The Xtensor to be transformed must have 2 dimensions")
+            raise ValueError("The PyTensor to be transformed must have 2 dimensions")
         return pd.DataFrame(self._values, index=self.indexes[0], columns=self.indexes[-1])
 
     def to_bytes(self) -> bytes:
@@ -864,7 +864,7 @@ class PyTensor(object):
         PyTensor with shape:
         (3,)
         indexes:
-        [array([0, 1, 2])]
+        [0 1 2]
         values:
         [1 2 3]
         """
@@ -1067,7 +1067,7 @@ class PyTensor(object):
                 for i in range(len(self.shape)):
                     assert_equal(self.indexes[i], other.indexes[i])
         except Exception:
-            raise ValueError(f"The two XTensors are not compatible for arithmetic operation\n"
+            raise ValueError(f"The two PyTensors are not compatible for arithmetic operation\n"
                              f"self.indexes={self.indexes}, other.indexes={other.indexes}\n"
                              f"self.shape={self.shape}, other.shape={other.shape}")
         return other
